@@ -1,0 +1,68 @@
+// Sauvegarde automatique (stockage local de l'app) + export / ouverture de fichiers .padel.json
+import type { Tournoi } from '../engine/types';
+
+const CLE = 'padel-tournoi:courant';
+
+export function chargerAuto(): Tournoi | null {
+  try {
+    const s = localStorage.getItem(CLE);
+    return s ? (JSON.parse(s) as Tournoi) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function sauverAuto(t: Tournoi) {
+  try {
+    localStorage.setItem(CLE, JSON.stringify(t));
+  } catch {
+    /* stockage indisponible */
+  }
+}
+
+const estTauri = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+export async function enregistrerFichier(contenu: string, nomParDefaut: string, extension: string) {
+  if (estTauri()) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    const chemin = await save({ defaultPath: nomParDefaut, filters: [{ name: extension, extensions: [extension] }] });
+    if (chemin) await writeTextFile(chemin, contenu);
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([contenu], { type: 'text/plain;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nomParDefaut;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function choisirFichier(accept: string): Promise<File | null> {
+  return new Promise((ok) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.onchange = () => ok(input.files?.[0] ?? null);
+    input.click();
+  });
+}
+
+export const nomFichier = (t: Tournoi) =>
+  `${t.nom.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'tournoi'}`;
+
+/** Demande de confirmation (boîte native dans l'app Mac). */
+export async function confirmer(message: string): Promise<boolean> {
+  if (estTauri()) {
+    const { ask } = await import('@tauri-apps/plugin-dialog');
+    return ask(message, { title: 'Confirmation', kind: 'warning' });
+  }
+  return window.confirm(message);
+}
+
+export async function avertir(message: string) {
+  if (estTauri()) {
+    const { message: msg } = await import('@tauri-apps/plugin-dialog');
+    await msg(message, { title: 'Padel Tournoi' });
+  } else window.alert(message);
+}

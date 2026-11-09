@@ -1,0 +1,79 @@
+import { useCallback, useEffect, useState } from 'react';
+import { nouveauTournoi } from './engine/tournoi';
+import type { Tournoi } from './engine/types';
+import { OngletFormule } from './ui/OngletFormule';
+import { OngletInscrits } from './ui/OngletInscrits';
+import { OngletPlanning } from './ui/OngletPlanning';
+import { OngletClassement, OngletResultats } from './ui/OngletResultats';
+import { OngletTableaux } from './ui/OngletTableaux';
+import { OngletTournoi } from './ui/OngletTournoi';
+import { avertir, chargerAuto, choisirFichier, confirmer, enregistrerFichier, nomFichier, sauverAuto } from './ui/stockage';
+
+const ONGLETS = [
+  ['tournoi', '1. Tournoi'],
+  ['inscrits', '2. Inscrits'],
+  ['formule', '3. Formule & tirage'],
+  ['tableaux', '4. Poules & tableaux'],
+  ['planning', '5. Planning'],
+  ['resultats', '6. Résultats'],
+  ['classement', '7. Classement'],
+] as const;
+type Onglet = (typeof ONGLETS)[number][0];
+
+export default function App() {
+  const [t, setT] = useState<Tournoi>(() => chargerAuto() ?? nouveauTournoi());
+  const [onglet, setOnglet] = useState<Onglet>('tournoi');
+  const maj = useCallback((f: (t: Tournoi) => Tournoi) => setT((x) => f(x)), []);
+  useEffect(() => sauverAuto(t), [t]);
+
+  const ouvrir = async () => {
+    const f = await choisirFichier('.json');
+    if (!f) return;
+    try {
+      const data = JSON.parse(await f.text()) as Tournoi;
+      if (data.version !== 1 || !Array.isArray(data.paires)) throw new Error('fichier non reconnu');
+      setT(data);
+      setOnglet('tournoi');
+    } catch (e) {
+      avertir(`Impossible d'ouvrir ce fichier : ${(e as Error).message}`);
+    }
+  };
+  const enregistrer = () => enregistrerFichier(JSON.stringify(t, null, 2), `${nomFichier(t)}.padel.json`, 'json');
+  const nouveau = async () => {
+    if (await confirmer('Créer un nouveau tournoi ? Pense à enregistrer le tournoi actuel avant.')) { setT(nouveauTournoi()); setOnglet('tournoi'); }
+  };
+
+  return (
+    <div className="app">
+      <header>
+        <div className="titre">
+          <span className="logo">🎾</span>
+          <div>
+            <h1>{t.nom}</h1>
+            <span className="muted">{t.categorie} · {t.discipline === 'DM' ? 'Messieurs' : t.discipline === 'DD' ? 'Dames' : 'Mixte'} · {t.paires.filter((p) => !p.forfait).length} paires</span>
+          </div>
+        </div>
+        <div className="actions-entete">
+          <button className="secondaire" onClick={nouveau}>Nouveau</button>
+          <button className="secondaire" onClick={ouvrir}>Ouvrir…</button>
+          <button className="secondaire" onClick={enregistrer}>Enregistrer…</button>
+          <button className="secondaire" onClick={() => window.print()}>Imprimer</button>
+        </div>
+      </header>
+      <nav>
+        {ONGLETS.map(([id, nom]) => (
+          <button key={id} className={onglet === id ? 'actif' : ''} onClick={() => setOnglet(id)}>{nom}</button>
+        ))}
+      </nav>
+      <main>
+        {onglet === 'tournoi' && <OngletTournoi t={t} maj={maj} />}
+        {onglet === 'inscrits' && <OngletInscrits t={t} maj={maj} />}
+        {onglet === 'formule' && <OngletFormule t={t} maj={maj} allerA={(o) => setOnglet(o as Onglet)} />}
+        {onglet === 'tableaux' && <OngletTableaux t={t} maj={maj} />}
+        {onglet === 'planning' && <OngletPlanning t={t} maj={maj} />}
+        {onglet === 'resultats' && <OngletResultats t={t} maj={maj} />}
+        {onglet === 'classement' && <OngletClassement t={t} />}
+      </main>
+    </div>
+  );
+}
