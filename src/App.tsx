@@ -7,6 +7,7 @@ import { OngletPlanning } from './ui/OngletPlanning';
 import { OngletClassement, OngletResultats } from './ui/OngletResultats';
 import { OngletTableaux } from './ui/OngletTableaux';
 import { OngletTournoi } from './ui/OngletTournoi';
+import { MiseAJour, useVersion } from './ui/MiseAJour';
 import { avertir, chargerAuto, choisirFichier, confirmer, enregistrerFichier, nomFichier, sauverAuto } from './ui/stockage';
 
 const ONGLETS = [
@@ -23,6 +24,8 @@ type Onglet = (typeof ONGLETS)[number][0];
 export default function App() {
   const [t, setT] = useState<Tournoi>(() => chargerAuto() ?? nouveauTournoi());
   const [onglet, setOnglet] = useState<Onglet>('tournoi');
+  const version = useVersion();
+  const [verifMaj, setVerifMaj] = useState(0);
   const maj = useCallback((f: (t: Tournoi) => Tournoi) => setT((x) => f(x)), []);
   useEffect(() => sauverAuto(t), [t]);
 
@@ -58,6 +61,7 @@ export default function App() {
           <button className="secondaire" onClick={ouvrir}>Ouvrir…</button>
           <button className="secondaire" onClick={enregistrer}>Enregistrer…</button>
           <button className="secondaire" onClick={() => window.print()}>Imprimer</button>
+          {version && <button className="lien version" title="Vérifier les mises à jour" onClick={() => setVerifMaj((n) => n + 1)}>v{version}</button>}
         </div>
       </header>
       <nav>
@@ -65,6 +69,7 @@ export default function App() {
           <button key={id} className={onglet === id ? 'actif' : ''} onClick={() => setOnglet(id)}>{nom}</button>
         ))}
       </nav>
+      <MiseAJour verifManuelle={verifMaj} />
       <main>
         {onglet === 'tournoi' && <OngletTournoi t={t} maj={maj} />}
         {onglet === 'inscrits' && <OngletInscrits t={t} maj={maj} />}

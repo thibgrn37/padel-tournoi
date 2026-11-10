@@ -38,13 +38,30 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # Version = 0.2.<numéro de build> : chaque build est une nouvelle version proposée en mise à jour
+      - name: Numéro de version
+        env:
+          CLE_PRESENTE: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          node -e "
+            const fs = require('fs'); const p = 'src-tauri/tauri.conf.json';
+            const c = JSON.parse(fs.readFileSync(p, 'utf8'));
+            c.version = '0.2.${{ github.run_number }}';
+            if (process.env.CLE_PRESENTE !== 'true') {
+              c.bundle.createUpdaterArtifacts = false;
+              console.log('::warning::Secret TAURI_SIGNING_PRIVATE_KEY absent : build sans mise à jour automatique');
+            }
+            fs.writeFileSync(p, JSON.stringify(c, null, 2));
+          "
       # Application universelle (Mac Apple Silicon et Intel), publiée dans « Releases »
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
         with:
           args: --target universal-apple-darwin
-          tagName: build-${{ github.run_number }}
-          releaseName: Padel Tournoi (build ${{ github.run_number }})
-          releaseBody: Télécharger le fichier .dmg ci-dessous, l'ouvrir et glisser Padel Tournoi dans Applications.
+          tagName: v__VERSION__
+          releaseName: Padel Tournoi __VERSION__
+          releaseBody: Si l'app est déjà installée, elle se met à jour toute seule. Sinon, télécharger le .dmg ci-dessous et glisser Padel Tournoi dans Applications.
           prerelease: false

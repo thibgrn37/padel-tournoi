@@ -84,6 +84,8 @@ fieldset { border: 1px solid var(--bord); border-radius: 8px; margin: 0 0 10px; 
 .bloc { margin-bottom: 16px; }
 .arbre { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 6px; }
 .colonne { display: flex; flex-direction: column; justify-content: space-around; gap: 8px; }
+.bandeau.maj { margin: 12px 20px 0; flex-wrap: wrap; }
+button.version { color: var(--muted); font-size: 12px; }
 .bandeau { display: flex; gap: 12px; align-items: center; background: var(--accent-clair); border: 1px solid var(--accent); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; }
 .planning td { min-width: 160px; }
 .planning .heure { font-weight: 700; min-width: 60px; }

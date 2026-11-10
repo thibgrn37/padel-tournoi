@@ -10,7 +10,13 @@ planning des terrains, saisie des résultats, matchs de classement et classement
 3. Premier lancement : l'app n'est pas signée par Apple. Faire **clic droit → Ouvrir**, puis confirmer.
    Si macOS refuse encore : Réglages Système → Confidentialité et sécurité → « Ouvrir quand même ».
 
-Chaque modification poussée sur `main` reconstruit automatiquement l'application (GitHub Actions).
+Ensuite, l'application **se met à jour toute seule** : au démarrage (puis toutes les heures), elle vérifie
+si une nouvelle version est publiée et propose « Mettre à jour maintenant ». Le numéro de version est affiché
+en haut à droite ; cliquer dessus lance une vérification.
+
+Chaque modification poussée sur `main` reconstruit l'application (GitHub Actions) et publie une nouvelle version
+`0.2.<numéro de build>`. Les mises à jour sont signées avec la clé stockée dans le secret GitHub
+`TAURI_SIGNING_PRIVATE_KEY` (la clé publique est dans `src-tauri/tauri.conf.json`).
 
 ## Utilisation
 1. **Tournoi** : catégorie (P25…P2000), épreuve, journées, pauses, terrains, durée des matchs.
