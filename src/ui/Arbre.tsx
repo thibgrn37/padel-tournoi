@@ -1,8 +1,9 @@
 // Affichage d'un tableau sous forme d'arbre (traits de liaison entre les tours).
 import { provenance, type Arbre as ArbreT, type Noeud } from '../engine/arbres';
+import { numeroTS } from '../engine/tableau';
 import { nomPaireId, resoudre } from '../engine/tournoi';
 import type { Match, Tournoi } from '../engine/types';
-import { dateCourte, heure, texteScore } from './commun';
+import { dateCourte, heure, PastilleBalles, texteScore } from './commun';
 
 function Equipe({ t, m, cote }: { t: Tournoi; m: Match; cote: 'A' | 'B' }) {
   const ref = cote === 'A' ? m.a : m.b;
@@ -10,8 +11,11 @@ function Equipe({ t, m, cote }: { t: Tournoi; m: Match; cote: 'A' | 'B' }) {
   const gagne = m.resultat?.vainqueur === cote;
   const perd = m.resultat && !gagne;
   const sets = m.resultat?.sets.map(([a, b]) => (cote === 'A' ? a : b)) ?? [];
+  const tab = t.tableaux.find((x) => x.id === m.groupeId);
+  const ts = tab && id && id !== 'BYE' ? numeroTS(tab, id, t.ordrePaires) : undefined;
   return (
     <div className={`a-equipe ${gagne ? 'a-gagnant' : ''} ${perd ? 'a-perdant' : ''}`}>
+      {ts && !(m.resultat?.auto && perd) && <span className="a-ts" title={`Tête de série n° ${ts}`}>TS{ts}</span>}
       <span className="a-nom">{m.resultat?.auto && perd ? <i className="a-attente">Forfait</i> : id ? nomPaireId(t, id) : <i className="a-attente">{provenance(t, ref)}</i>}</span>
       {m.resultat && m.resultat.issue !== 'WO' && <span className="a-sets">{sets.map((s, i) => <b key={i}>{s}</b>)}</span>}
       {m.resultat?.issue === 'WO' && gagne && <span className="a-sets">WO</span>}
@@ -25,7 +29,7 @@ function Boite({ t, m, onClic, details }: { t: Tournoi; m: Match; onClic?: (m: M
     const reel = a === 'BYE' ? b : a;
     return (
       <div className="a-boite a-exempt">
-        <div className="a-equipe"><span className="a-nom">{reel && reel !== 'BYE' ? nomPaireId(t, reel) : <i className="a-attente">{provenance(t, a === 'BYE' ? m.b : m.a)}</i>}</span></div>
+        <div className="a-equipe">{(() => { const tab = t.tableaux.find((x) => x.id === m.groupeId); const n = tab && reel && reel !== 'BYE' ? numeroTS(tab, reel, t.ordrePaires) : undefined; return n ? <span className="a-ts" title={`Tête de série n° ${n}`}>TS{n}</span> : null; })()}<span className="a-nom">{reel && reel !== 'BYE' ? nomPaireId(t, reel) : <i className="a-attente">{provenance(t, a === 'BYE' ? m.b : m.a)}</i>}</span></div>
         <div className="a-info">exempt</div>
       </div>
     );
@@ -37,7 +41,7 @@ function Boite({ t, m, onClic, details }: { t: Tournoi; m: Match; onClic?: (m: M
       title={m.resultat ? texteScore(m.resultat) : m.libelle}>
       <Equipe t={t} m={m} cote="A" />
       <Equipe t={t} m={m} cote="B" />
-      {details && !m.resultat && m.debut && <div className="a-info">{dateCourte(m.debut)} {heure(m.debut)}{terrain ? ` · ${terrain}` : ''}</div>}
+      {details && !m.resultat && m.debut && <div className="a-info">{dateCourte(m.debut)} {heure(m.debut)}{terrain ? ` · ${terrain}` : ''} <PastilleBalles t={t} m={m} /></div>}
     </div>
   );
 }

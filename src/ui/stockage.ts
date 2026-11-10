@@ -2,6 +2,28 @@
 import type { Tournoi } from '../engine/types';
 
 const CLE = 'padel-tournoi:courant';
+const CLE_CLUB = 'padel-tournoi:club';
+
+/** Réglages du club repris à chaque nouveau tournoi : terrains, nom de la structure, visuel. */
+interface Club { terrains: Tournoi['terrains']; lieu?: string; affichage?: Tournoi['affichage'] }
+
+export function sauverClub(t: Tournoi) {
+  // titre et sous-titre de l'écran sont propres à chaque tournoi
+  const affichage = t.affichage ? { ...t.affichage, titre: '', sousTitre: '' } : undefined;
+  const c: Club = { terrains: t.terrains, lieu: t.lieu, affichage };
+  try { localStorage.setItem(CLE_CLUB, JSON.stringify(c)); } catch { /* stockage indisponible */ }
+}
+
+export function avecClub(t: Tournoi): Tournoi {
+  try {
+    const s = localStorage.getItem(CLE_CLUB);
+    if (!s) return t;
+    const c = JSON.parse(s) as Club;
+    return { ...t, terrains: c.terrains?.length ? c.terrains : t.terrains, lieu: c.lieu || t.lieu, affichage: c.affichage ?? t.affichage };
+  } catch {
+    return t;
+  }
+}
 
 export function chargerAuto(): Tournoi | null {
   try {

@@ -44,3 +44,15 @@ Le code correspondant est dans `src/engine/regles.ts` (règles), `poules.ts`, `t
 
 ## Pas encore géré
 Qualifications + tableau final avec entrées échelonnées (P500 et plus), wild cards, lucky losers, prize money, barèmes de points, championnats par paires / par équipes.
+
+## Balles (Chapitre III, cahiers des charges)
+- P25, P50 et jeunes : 3 balles neuves par terrain ; matchs de classement : non obligatoire.
+- P100, P250 : 3 balles par terrain + 3 balles neuves par match à partir des 1/2 finales + match des perdants des 1/2 finales.
+- P500, P1000 : 3 balles neuves par match, changement non obligatoire.
+- P1500, P2000 : 3 balles neuves par match + changement au 3e set des matchs A1.
+- Interprétation : « 3 / piste » = une boîte par terrain pour tout le tournoi ; P50 aligné sur le P25.
+
+## Planning et têtes de série
+- Les 1/2 finales puis la finale du tableau principal sont programmées en dernier (demande de l'organisateur).
+- Têtes de série d'un tableau : la moitié des places du 1er tour, dans l'ordre des paires (poids, ou rang de poule puis poids).
+- Une paire perdante par WO, abandon ou disqualification est sortie : ses matchs suivants sont gagnés par WO par l'adversaire.

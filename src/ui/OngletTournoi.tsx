@@ -12,7 +12,7 @@ export function OngletTournoi({ t, maj }: { t: Tournoi; maj: Maj }) {
       <section className="carte">
         <h2>Épreuve</h2>
         <label>Nom du tournoi<input value={t.nom} onChange={(e) => set('nom', e.target.value)} /></label>
-        <label>Lieu<input value={t.lieu ?? ''} onChange={(e) => set('lieu', e.target.value)} /></label>
+        <label>Structure / lieu<input value={t.lieu ?? ''} onChange={(e) => set('lieu', e.target.value)} /></label>
         <div className="ligne">
           <label>Catégorie
             <select value={t.categorie} onChange={(e) => changerCategorie(e.target.value as Categorie)}>
@@ -98,6 +98,7 @@ export function OngletTournoi({ t, maj }: { t: Tournoi; maj: Maj }) {
           </div>
         ))}
         <button className="secondaire" onClick={() => set('terrains', [...t.terrains, { id: `t${Date.now().toString(36)}`, nom: `Terrain ${t.terrains.length + 1}` }])}>+ Ajouter un terrain</button>
+        <p className="aide">Les terrains, le nom de la structure et le visuel de l'écran de diffusion sont repris automatiquement au prochain « Nouveau tournoi ».</p>
       </section>
 
       <section className="carte">

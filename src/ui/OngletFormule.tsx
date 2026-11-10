@@ -6,6 +6,7 @@ import { estExempt, genererFormule, matchsMinimumGarantis, selection } from '../
 import type { FormatCode, FormatsChoisis, Formule, Tournoi } from '../engine/types';
 import { Problemes } from './commun';
 import { estimer, suggestions } from '../engine/estimation';
+import { besoinBalles, BALLES_PAR_BOITE } from '../engine/balles';
 import { avertir, confirmer } from './stockage';
 
 type Maj = (f: (t: Tournoi) => Tournoi) => void;
@@ -126,6 +127,7 @@ export function OngletFormule({ t, maj, allerA }: { t: Tournoi; maj: Maj; allerA
       </section>
 
       <Faisabilite t={t} maj={maj} />
+      <Balles t={t} />
 
       <section className="carte pleine">
         <h2>Conformité</h2>
@@ -192,6 +194,31 @@ function Faisabilite({ t, maj }: { t: Tournoi; maj: Maj }) {
           )}
         </>
       )}
+    </section>
+  );
+}
+
+/** Boîtes de balles à prévoir et moments où ouvrir des balles neuves (cahier des charges). */
+function Balles({ t }: { t: Tournoi }) {
+  const cle = JSON.stringify([t.paires.length, t.paires.map((p) => p.forfait), t.formule, t.terrains.length, t.categorie, t.public, t.matchs.length]);
+  const b = useMemo(() => {
+    if (t.matchs.length) return besoinBalles(t);
+    try { return besoinBalles(genererFormule({ ...t, tirages: [] }, 1)); } catch { return null; }
+  }, [cle]);
+  if (!b) return null;
+  const pluriel = (n: number) => `${n} boîte${n > 1 ? 's' : ''}`;
+  return (
+    <section className="carte pleine">
+      <h2>Balles</h2>
+      <p><b>{pluriel(b.total)}</b> de {BALLES_PAR_BOITE} balles à prévoir{b.boites3eSet ? ' (au maximum, si tous les matchs A1 vont au 3e set)' : ''}{!t.matchs.length ? ', d\'après la formule choisie' : ''}.</p>
+      <ul>
+        {b.boitesTerrains > 0 && <li>{pluriel(b.boitesTerrains)} pour la mise en place : 1 par terrain ({t.terrains.length} terrain{t.terrains.length > 1 ? 's' : ''}).</li>}
+        {b.boitesMatchs > 0 && <li>{pluriel(b.boitesMatchs)} pour les matchs joués avec des balles neuves.</li>}
+        {b.boites3eSet > 0 && <li>Jusqu'à {pluriel(b.boites3eSet)} pour les changements au 3e set des matchs A1.</li>}
+      </ul>
+      <h4>Règle du {t.categorie}{t.public === 'JEUNES' ? ' jeunes' : ''}</h4>
+      <ul>{b.regle.texte.map((x, i) => <li key={i}>{x}</li>)}</ul>
+      <p className="aide">Les matchs qui demandent des balles neuves portent la pastille 🎾 dans le planning, les résultats et les tableaux. Prévois quelques boîtes de réserve (balles abîmées, matchs longs).</p>
     </section>
   );
 }

@@ -135,6 +135,8 @@ export interface Tableau {
   /** Origine des paires : inscrits (TMC) ou rangs de poules. */
   origine: { type: 'INSCRITS' } | { type: 'POULES'; rangs: number[] };
   principal: boolean;
+  /** Têtes de série (ids de paires), TS1 en premier. Fixées au tirage. */
+  tetesDeSerie?: string[];
 }
 
 export interface Tirage {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Probleme } from '../engine/planning';
+import { ballesNeuves, regleBalles } from '../engine/balles';
 import { controleScore, DEF_FORMATS } from '../engine/regles';
 import { dependantsJoues, nomPaireId, resoudre, scoreForfait } from '../engine/tournoi';
 import type { Issue, Match, Resultat, Tournoi } from '../engine/types';
@@ -22,6 +23,14 @@ export const texteScore = (r?: Resultat) => {
   return r.issue === 'WO' ? 'WO' : r.issue === 'ABANDON' ? `${s} ab.` : r.issue === 'DISQUALIFICATION' ? `${s} disq.` : s;
 };
 
+/** Pastille « balles neuves » (et changement au 3e set en A1 si le cahier des charges l'impose). */
+export function PastilleBalles({ t, m }: { t: Tournoi; m: Match }) {
+  if (m.resultat || !ballesNeuves(t, m)) return null;
+  const r = regleBalles(t);
+  const titre = 'Balles neuves pour ce match' + (r.changement3eSetA1 && m.format === 'A1' ? ' + changement au 3e set' : '');
+  return <span className="balles" title={titre}>🎾 neuves{r.changement3eSetA1 && m.format === 'A1' ? ' (+3e set)' : ''}</span>;
+}
+
 export const heure = (debut?: string) => (debut ? debut.slice(11, 16) : '');
 export const dateCourte = (debut?: string) =>
   debut ? new Date(debut.slice(0, 10) + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) : '';
@@ -34,7 +43,7 @@ export function LigneMatch({ t, m, onClic }: { t: Tournoi; m: Match; onClic?: ()
     <div className={`match ${r ? 'joue' : ''} ${onClic && a && b ? 'cliquable' : ''}`} onClick={a && b ? onClic : undefined}>
       <div className="match-entete">
         <span>{m.libelle}</span>
-        <span className="muted">{m.format}{m.debut ? ` · ${dateCourte(m.debut)} ${heure(m.debut)}` : ''}{terrain ? ` · ${terrain}` : ''}</span>
+        <span className="muted"><PastilleBalles t={t} m={m} /> {m.format}{m.debut ? ` · ${dateCourte(m.debut)} ${heure(m.debut)}` : ''}{terrain ? ` · ${terrain}` : ''}</span>
       </div>
       <div className={`equipe ${r?.vainqueur === 'A' ? 'gagnant' : ''}`}>{r?.auto && r.vainqueur === 'B' ? <i className="muted">Forfait</i> : nomPaireId(t, a)}</div>
       <div className={`equipe ${r?.vainqueur === 'B' ? 'gagnant' : ''}`}>{r?.auto && r.vainqueur === 'A' ? <i className="muted">Forfait</i> : nomPaireId(t, b)}</div>

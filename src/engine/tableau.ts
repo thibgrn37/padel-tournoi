@@ -149,9 +149,19 @@ export function tirerTableau(
     if (conflit(res.slots)) journal.log('Impossible d\'éviter toutes les rencontres entre paires d\'une même poule au 1er tour.');
     else if (n > 0) journal.log(`Tirage refait ${n} fois pour éviter les rencontres entre paires d'une même poule au 1er tour.`);
   }
+  // Tableau final : autant de TS que la moitié des places du 1er tour (Chapitre I, constitution des tableaux)
+  const tetesDeSerie = entrants.slice(0, Math.min(N, S / 2));
+  journal.log(`Têtes de série : ` + tetesDeSerie.map((id, i) => `TS${i + 1} ${nom(id)}`).join(' ; '));
   journal.log(`TS 1 : ${nom(entrants[0])} (en bas du tableau)`);
   if (N > 1) journal.log(`TS 2 : ${nom(entrants[1])} (en haut du tableau)`);
   res.traces.forEach((x) => journal.log(x));
   if (t.byes.length) journal.log(`${t.byes.length} exempt(s) placé(s) face aux meilleures têtes de série.`);
-  return { ...t, slots: res.slots };
+  return { ...t, slots: res.slots, tetesDeSerie };
+}
+
+/** Numéro de tête de série d'une paire dans un tableau (undefined si non TS). */
+export function numeroTS(tab: Tableau, paireId: string, ordrePaires?: string[]): number | undefined {
+  const ts = tab.tetesDeSerie ?? (tab.origine.type === 'INSCRITS' && ordrePaires ? ordrePaires.slice(0, tab.taille / 2) : []);
+  const i = ts.indexOf(paireId);
+  return i >= 0 ? i + 1 : undefined;
 }

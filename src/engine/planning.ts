@@ -66,9 +66,9 @@ export function planifier(t: Tournoi): ResultatPlanning {
     return x;
   };
 
-  const plusTot = (m: Match, terrainId: string): number | null => {
+  const plusTot = (m: Match, terrainId: string, plancher = 0): number | null => {
     const d = duree(t, m);
-    let s = fenetres[0]?.debut ?? 0;
+    let s = Math.max(fenetres[0]?.debut ?? 0, plancher);
     for (const p of preds.get(m.id)!) {
       const pl = places.get(p.id);
       if (!pl) return null;
@@ -98,17 +98,27 @@ export function planifier(t: Tournoi): ResultatPlanning {
 
   const restants = new Set(aPlanifier.map((m) => m.id));
   const parId = new Map(aPlanifier.map((m) => [m.id, m]));
+  const vague = vagues(t);
+  const bloques: Match[] = [];
   while (restants.size) {
+    // demi-finales puis finale du tableau principal en dernier
+    const v = Math.min(...[...restants].map((id) => vague.get(id) ?? 0));
+    const plancher = Math.max(0, ...t.matchs.filter((x) => (vague.get(x.id) ?? 0) < v && places.has(x.id)).map((x) => places.get(x.id)!.debut));
     let meilleur: { m: Match; s: number; terrainId: string } | null = null;
     for (const id of restants) {
       const m = parId.get(id)!;
+      if ((vague.get(id) ?? 0) !== v) continue;
       for (const c of t.terrains) {
-        const s = plusTot(m, c.id);
+        const s = plusTot(m, c.id, plancher);
         if (s === null) continue;
         if (!meilleur || s < meilleur.s || (s === meilleur.s && m.ordre < meilleur.m.ordre)) meilleur = { m, s, terrainId: c.id };
       }
     }
-    if (!meilleur) break;
+    if (!meilleur) {
+      // vague impossible à placer : on la laisse de côté pour ne pas bloquer la suite
+      for (const id of [...restants]) if ((vague.get(id) ?? 0) === v) { restants.delete(id); bloques.push(parId.get(id)!); }
+      continue;
+    }
     const { m, s, terrainId } = meilleur;
     places.set(m.id, { debut: s, fin: s + duree(t, m), terrainId });
     occupation.get(terrainId)!.push({ debut: s, fin: s + duree(t, m) });
@@ -120,7 +130,34 @@ export function planifier(t: Tournoi): ResultatPlanning {
     if (!pl) return { ...m, debut: undefined, terrainId: undefined };
     return { ...m, debut: versTexte(pl.debut), terrainId: pl.terrainId };
   });
-  return { tournoi: { ...t, matchs }, nonPlanifies: [...restants].map((id) => parId.get(id)!) };
+  return { tournoi: { ...t, matchs }, nonPlanifies: [...bloques, ...[...restants].map((id) => parId.get(id)!)] };
+}
+
+/**
+ * Ordre de programmation : 0 = tous les autres matchs, 1 = demi-finales du tableau principal,
+ * 2 = matchs qui en dépendent (3e place…), 3 = finale. Une vague ne commence pas avant
+ * le dernier début de la vague précédente : les demies et la finale sont les derniers matchs.
+ */
+export function vagues(t: Tournoi): Map<string, number> {
+  const res = new Map<string, number>();
+  const principal = new Set(t.tableaux.filter((x) => x.principal).map((x) => x.id));
+  const demis = new Set(t.matchs.filter((m) => principal.has(m.groupeId) && m.phase === 'TABLEAU' && m.tailleTour === 4).map((m) => m.id));
+  if (!demis.size) return res;
+  const dependDesDemis = (m: Match, vus = new Set<string>()): boolean =>
+    [m.a, m.b].some((r) => {
+      if (r.k !== 'gagnant' && r.k !== 'perdant') return false;
+      if (demis.has(r.matchId)) return true;
+      if (vus.has(r.matchId)) return false;
+      vus.add(r.matchId);
+      const src = t.matchs.find((x) => x.id === r.matchId);
+      return !!src && dependDesDemis(src, vus);
+    });
+  for (const m of t.matchs) {
+    if (demis.has(m.id)) res.set(m.id, 1);
+    else if (principal.has(m.groupeId) && m.phase === 'TABLEAU' && m.tailleTour === 2) res.set(m.id, 3);
+    else if (dependDesDemis(m)) res.set(m.id, 2);
+  }
+  return res;
 }
 
 export interface Probleme { niveau: 'erreur' | 'alerte'; message: string }

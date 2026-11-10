@@ -8,7 +8,9 @@ import { creerRng, Journal } from './tirage';
 import {
   classementFinal, genererFormule, matchsMinimumGarantis, nouveauTournoi, propagerSorties, resoudre, saisirResultat, tableauxATirer, tirerTableauxApresPoules,
 } from './tournoi';
-import { controlesPlanning, debutEnMinutes, planifier } from './planning';
+import { controlesPlanning, debutEnMinutes, planifier, vagues } from './planning';
+import { besoinBalles } from './balles';
+import { numeroTS } from './tableau';
 import { controlesFormule, controlesInscrits } from './controles';
 import type { Match, Paire, Tournoi } from './types';
 
@@ -227,6 +229,35 @@ describe('tournoi complet', () => {
     // annuler l'abandon remet les matchs suivants à jouer
     const t2 = propagerSorties(saisirResultat(t, m1.id, undefined));
     expect(t2.matchs.some((m) => m.resultat?.auto)).toBe(false);
+  });
+  it('planning : demi-finales puis finale du tableau principal en dernier', () => {
+    const base = genererFormule({ ...tournoiTest(16, 'TMC'), terrains: [1, 2, 3, 4].map((i) => ({ id: `c${i}`, nom: `T${i}` })) }, 7);
+    const { tournoi: t } = planifier(base);
+    const v = vagues(t);
+    const debut = (id: string) => debutEnMinutes(t.matchs.find((m) => m.id === id)!.debut!);
+    const max = (n: number) => Math.max(...t.matchs.filter((m) => (v.get(m.id) ?? 0) === n && m.debut).map((m) => debut(m.id)));
+    const min = (n: number) => Math.min(...t.matchs.filter((m) => (v.get(m.id) ?? 0) === n && m.debut).map((m) => debut(m.id)));
+    expect([...v.values()].filter((x) => x === 1).length).toBe(2);
+    expect(min(1)).toBeGreaterThanOrEqual(max(0));
+    expect(min(3)).toBeGreaterThanOrEqual(max(2));
+    const finale = t.matchs.find((m) => v.get(m.id) === 3)!;
+    expect(debut(finale.id)).toBe(Math.max(...t.matchs.filter((m) => m.debut).map((m) => debut(m.id))));
+  });
+  it('têtes de série : moitié du tableau, dans l\'ordre', () => {
+    const t = genererFormule(tournoiTest(16, 'TMC'), 7);
+    const tab = t.tableaux.find((x) => x.principal)!;
+    expect(tab.tetesDeSerie?.length).toBe(8);
+    expect(numeroTS(tab, 'p1')).toBe(1);
+    expect(numeroTS(tab, 'p8')).toBe(8);
+    expect(numeroTS(tab, 'p9')).toBeUndefined();
+  });
+  it('balles : P100 = 1 boîte par terrain + demies, finale et 3e place', () => {
+    const t = genererFormule({ ...tournoiTest(16, 'TMC'), categorie: 'P100' }, 7);
+    const b = besoinBalles(t);
+    expect(b.boitesTerrains).toBe(t.terrains.length);
+    expect(b.boitesMatchs).toBe(4);
+    const p1000 = besoinBalles({ ...t, categorie: 'P1000' });
+    expect(p1000.boitesMatchs).toBe(32);
   });
   it('poules + tableau final, 14 paires en 4 poules', () => {
     let t = genererFormule(tournoiTest(14, 'POULES_TABLEAU', 4), 5);

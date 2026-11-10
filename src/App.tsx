@@ -9,7 +9,7 @@ import { OngletTableaux } from './ui/OngletTableaux';
 import { OngletTournoi } from './ui/OngletTournoi';
 import { OngletVisualisation } from './ui/OngletVisualisation';
 import { MiseAJour, useVersion } from './ui/MiseAJour';
-import { avertir, chargerAuto, choisirFichier, confirmer, enregistrerFichier, nomFichier, sauverAuto } from './ui/stockage';
+import { avertir, chargerAuto, choisirFichier, confirmer, enregistrerFichier, nomFichier, sauverAuto, avecClub, sauverClub } from './ui/stockage';
 
 const ONGLETS = [
   ['tournoi', '1. Tournoi'],
@@ -24,12 +24,14 @@ const ONGLETS = [
 type Onglet = (typeof ONGLETS)[number][0];
 
 export default function App() {
-  const [t, setT] = useState<Tournoi>(() => propagerSorties(chargerAuto() ?? nouveauTournoi()));
+  const [t, setT] = useState<Tournoi>(() => propagerSorties(chargerAuto() ?? avecClub(nouveauTournoi())));
   const [onglet, setOnglet] = useState<Onglet>('tournoi');
   const version = useVersion();
   const [verifMaj, setVerifMaj] = useState(0);
   const maj = useCallback((f: (t: Tournoi) => Tournoi) => setT((x) => propagerSorties(f(x))), []);
   useEffect(() => sauverAuto(t), [t]);
+  // terrains, structure et visuel deviennent les réglages par défaut des prochains tournois
+  useEffect(() => sauverClub(t), [t.terrains, t.lieu, t.affichage]);
 
   const ouvrir = async () => {
     const f = await choisirFichier('.json');
@@ -45,7 +47,7 @@ export default function App() {
   };
   const enregistrer = () => enregistrerFichier(JSON.stringify(t, null, 2), `${nomFichier(t)}.padel.json`, 'json');
   const nouveau = async () => {
-    if (await confirmer('Créer un nouveau tournoi ? Pense à enregistrer le tournoi actuel avant.')) { setT(nouveauTournoi()); setOnglet('tournoi'); }
+    if (await confirmer('Créer un nouveau tournoi ? Pense à enregistrer le tournoi actuel avant.')) { setT(avecClub(nouveauTournoi())); setOnglet('tournoi'); }
   };
 
   return (

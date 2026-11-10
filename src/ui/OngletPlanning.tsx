@@ -3,7 +3,7 @@ import { controlesPlanning, debutEnMinutes, duree, planifier } from '../engine/p
 import { DEF_FORMATS, FORMATS } from '../engine/regles';
 import { estExempt, nomPaireId, resoudre } from '../engine/tournoi';
 import type { FormatCode, Match, Tournoi } from '../engine/types';
-import { heure, Problemes, texteScore } from './commun';
+import { heure, PastilleBalles, Problemes, texteScore } from './commun';
 import { confirmer } from './stockage';
 
 type Maj = (f: (t: Tournoi) => Tournoi) => void;
@@ -16,6 +16,41 @@ const finTexte = (t: Tournoi, m: Match) => {
 export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
   const [edition, setEdition] = useState<Match | null>(null);
   const [message, setMessage] = useState('');
+  const [glisse, setGlisse] = useState<string | null>(null);
+  const [survol, setSurvol] = useState<string | null>(null);
+  /** Dépose le match glissé sur un créneau : échange avec le match qui s'y trouve, s'il y en a un. */
+  const deposer = (debut: string, terrainId: string) => {
+    const id = glisse;
+    setGlisse(null);
+    setSurvol(null);
+    if (!id) return;
+    maj((x) => {
+      const m = x.matchs.find((y) => y.id === id);
+      if (!m || (m.debut === debut && m.terrainId === terrainId)) return x;
+      const occupant = x.matchs.find((y) => y.id !== id && y.debut === debut && y.terrainId === terrainId);
+      if (occupant?.resultat) return x;
+      return {
+        ...x,
+        matchs: x.matchs.map((y) => {
+          if (y.id === id) return { ...y, debut, terrainId, verrouille: true };
+          if (occupant && y.id === occupant.id) return { ...y, debut: m.debut, terrainId: m.terrainId, verrouille: !!m.debut };
+          return y;
+        }),
+      };
+    });
+    setMessage('Match déplacé et verrouillé 🔒. Vérifie les alertes de repos ci-dessus.');
+  };
+  const cible = (debut: string, terrainId: string, occupe?: Match) => ({
+    onDragOver: (e: React.DragEvent) => { if (glisse && !occupe?.resultat) { e.preventDefault(); setSurvol(`${debut}|${terrainId}`); } },
+    onDragLeave: () => setSurvol((s) => (s === `${debut}|${terrainId}` ? null : s)),
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); deposer(debut, terrainId); },
+  });
+  const source = (m: Match) => ({
+    draggable: !m.resultat,
+    onDragStart: (e: React.DragEvent) => { e.dataTransfer.setData('text/plain', m.id); e.dataTransfer.effectAllowed = 'move'; setGlisse(m.id); },
+    onDragEnd: () => { setGlisse(null); setSurvol(null); },
+  });
+  const classeSurvol = (debut: string, terrainId: string) => (survol === `${debut}|${terrainId}` ? ' cible' : '');
   const aJouer = t.matchs.filter((m) => !estExempt(t, m) && !m.resultat?.auto);
   const planifies = aJouer.filter((m) => m.debut);
   const nonPlanifies = aJouer.filter((m) => !m.debut);
@@ -32,7 +67,7 @@ export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
     <div>
       <div className="barre">
         <button onClick={calculer} disabled={!t.matchs.length}>{planifies.length ? 'Recalculer le planning' : 'Calculer le planning'}</button>
-        <span className="muted">{planifies.length} match(s) programmé(s){nonPlanifies.length ? `, ${nonPlanifies.length} non programmé(s)` : ''}. Clique sur un match pour le déplacer ou le verrouiller.</span>
+        <span className="muted">{planifies.length} match(s) programmé(s){nonPlanifies.length ? `, ${nonPlanifies.length} non programmé(s)` : ''}. Glisse un match sur un autre créneau pour le déplacer (sur un match : ils s'échangent), ou clique dessus pour choisir l'heure exacte.</span>
       </div>
       {message && <p className="info">{message}</p>}
       <Problemes liste={controlesPlanning(t)} okTexte={planifies.length ? 'Temps de repos, nombre de matchs par jour et terrains respectés' : undefined} />
@@ -50,11 +85,11 @@ export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
                     <td className="heure">{heure(h)}</td>
                     {t.terrains.map((c) => {
                       const m = ms.find((x) => x.debut === h && x.terrainId === c.id);
-                      if (!m) return <td key={c.id}></td>;
+                      if (!m) return <td key={c.id} className={`case-vide${classeSurvol(h, c.id)}`} {...cible(h, c.id)}></td>;
                       const a = resoudre(t, m.a), b = resoudre(t, m.b);
                       return (
-                        <td key={c.id} className={`case-match ${m.resultat ? 'joue' : ''}`} onClick={() => setEdition(m)}>
-                          <div className="muted">{m.verrouille ? '🔒 ' : ''}{m.libelle} · {m.format} · fin {finTexte(t, m)}</div>
+                        <td key={c.id} className={`case-match ${m.resultat ? 'joue' : ''}${glisse === m.id ? ' glisse' : ''}${classeSurvol(h, c.id)}`} onClick={() => setEdition(m)} {...source(m)} {...cible(h, c.id, m)}>
+                          <div className="muted">{m.verrouille ? '🔒 ' : ''}{m.libelle} · {m.format} · fin {finTexte(t, m)} <PastilleBalles t={t} m={m} /></div>
                           <div>{a ? nomPaireId(t, a) : '…'}</div>
                           <div>{b ? nomPaireId(t, b) : '…'}</div>
                           {m.resultat && <div className="score">{texteScore(m.resultat)}</div>}
@@ -71,7 +106,7 @@ export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
       {nonPlanifies.length > 0 && planifies.length > 0 && (
         <section className="carte">
           <h3>Matchs non programmés</h3>
-          <ul>{nonPlanifies.map((m) => <li key={m.id}><button className="lien" onClick={() => setEdition(m)}>{m.libelle}</button></li>)}</ul>
+          <ul>{nonPlanifies.map((m) => <li key={m.id} {...source(m)} className="glissable"><button className="lien" onClick={() => setEdition(m)}>{m.libelle}</button></li>)}</ul>
         </section>
       )}
       {edition && <EditionMatch t={t} m={edition} onFermer={() => setEdition(null)} onValider={(m) => { maj((x) => ({ ...x, matchs: x.matchs.map((y) => (y.id === m.id ? m : y)) })); setEdition(null); }} />}

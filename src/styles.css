@@ -126,7 +126,8 @@ details ul { font-size: 13px; }
 .a-exempt { opacity: .6; border-style: dashed; }
 .a-equipe { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; }
 .a-equipe + .a-equipe { border-top: 1px solid var(--a-traits); }
-.a-nom { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.a-ts { flex: none; font-size: 0.75em; font-weight: 700; padding: 1px 4px; border-radius: 4px; background: var(--a-traits); align-self: center; }
+.a-nom { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .a-gagnant { color: var(--a-gagnant); font-weight: 700; }
 .a-perdant { opacity: .6; }
 .a-sets { display: flex; gap: 6px; font-variant-numeric: tabular-nums; }
@@ -173,3 +174,8 @@ details ul { font-size: 13px; }
 .couleurs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 12px; }
 .couleurs input[type=color] { width: 40px; height: 28px; padding: 0; border: none; }
 .visu { grid-template-columns: minmax(320px, 1fr) minmax(480px, 2fr); }
+
+.balles { font-size: 0.85em; white-space: nowrap; color: var(--accent); }
+.planning td.case-match[draggable='true'], .glissable { cursor: grab; }
+.planning td.glisse { opacity: 0.4; }
+.planning td.cible { outline: 2px dashed var(--accent); outline-offset: -3px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
