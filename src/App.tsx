@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { nouveauTournoi } from './engine/tournoi';
+import { nouveauTournoi, propagerSorties } from './engine/tournoi';
 import type { Tournoi } from './engine/types';
 import { OngletFormule } from './ui/OngletFormule';
 import { OngletInscrits } from './ui/OngletInscrits';
@@ -24,11 +24,11 @@ const ONGLETS = [
 type Onglet = (typeof ONGLETS)[number][0];
 
 export default function App() {
-  const [t, setT] = useState<Tournoi>(() => chargerAuto() ?? nouveauTournoi());
+  const [t, setT] = useState<Tournoi>(() => propagerSorties(chargerAuto() ?? nouveauTournoi()));
   const [onglet, setOnglet] = useState<Onglet>('tournoi');
   const version = useVersion();
   const [verifMaj, setVerifMaj] = useState(0);
-  const maj = useCallback((f: (t: Tournoi) => Tournoi) => setT((x) => f(x)), []);
+  const maj = useCallback((f: (t: Tournoi) => Tournoi) => setT((x) => propagerSorties(f(x))), []);
   useEffect(() => sauverAuto(t), [t]);
 
   const ouvrir = async () => {
@@ -37,7 +37,7 @@ export default function App() {
     try {
       const data = JSON.parse(await f.text()) as Tournoi;
       if (data.version !== 1 || !Array.isArray(data.paires)) throw new Error('fichier non reconnu');
-      setT(data);
+      setT(propagerSorties(data));
       setOnglet('tournoi');
     } catch (e) {
       avertir(`Impossible d'ouvrir ce fichier : ${(e as Error).message}`);

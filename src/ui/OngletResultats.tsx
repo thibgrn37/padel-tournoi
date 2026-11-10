@@ -14,7 +14,8 @@ export function OngletResultats({ t, maj }: { t: Tournoi; maj: Maj }) {
   const connus = (m: Match) => { const a = resoudre(t, m.a), b = resoudre(t, m.b); return !!a && !!b && a !== 'BYE' && b !== 'BYE'; };
   const aJouer = reels.filter((m) => !m.resultat && connus(m)).sort(parHoraire);
   const enAttente = reels.filter((m) => !m.resultat && !connus(m)).length;
-  const joues = reels.filter((m) => m.resultat).sort((a, b) => parHoraire(b, a));
+  const auto = reels.filter((m) => m.resultat?.auto).length;
+  const joues = reels.filter((m) => m.resultat && !m.resultat.auto).sort((a, b) => parHoraire(b, a));
   if (!t.matchs.length) return <p className="vide">Aucun match : effectue d'abord le tirage.</p>;
   return (
     <div className="grille">
@@ -25,6 +26,7 @@ export function OngletResultats({ t, maj }: { t: Tournoi; maj: Maj }) {
       </section>
       <section className="carte">
         <h2>Joués ({joues.length})</h2>
+        {auto > 0 && <p className="muted">{auto} match(s) gagné(s) par WO automatique : l'adversaire était déjà sorti du tournoi (abandon, WO ou disqualification).</p>}
         <div className="liste-matchs">{joues.map((m) => <LigneMatch key={m.id} t={t} m={m} onClic={() => setSaisie(m)} />)}</div>
       </section>
       {saisie && (

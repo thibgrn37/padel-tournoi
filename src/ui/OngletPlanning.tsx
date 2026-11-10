@@ -16,7 +16,7 @@ const finTexte = (t: Tournoi, m: Match) => {
 export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
   const [edition, setEdition] = useState<Match | null>(null);
   const [message, setMessage] = useState('');
-  const aJouer = t.matchs.filter((m) => !estExempt(t, m));
+  const aJouer = t.matchs.filter((m) => !estExempt(t, m) && !m.resultat?.auto);
   const planifies = aJouer.filter((m) => m.debut);
   const nonPlanifies = aJouer.filter((m) => !m.debut);
 

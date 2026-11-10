@@ -6,7 +6,7 @@ import { chapeaux, creerTableau, genererMatchsTableau, positionsTetesDeSerie, ti
 import { classementPoule, constituerPoules, genererMatchsPoule, rencontresPoule, taillesPoules } from './poules';
 import { creerRng, Journal } from './tirage';
 import {
-  classementFinal, genererFormule, matchsMinimumGarantis, nouveauTournoi, resoudre, saisirResultat, tableauxATirer, tirerTableauxApresPoules,
+  classementFinal, genererFormule, matchsMinimumGarantis, nouveauTournoi, propagerSorties, resoudre, saisirResultat, tableauxATirer, tirerTableauxApresPoules,
 } from './tournoi';
 import { controlesPlanning, debutEnMinutes, planifier } from './planning';
 import { controlesFormule, controlesInscrits } from './controles';
@@ -171,6 +171,7 @@ function tournoiTest(n: number, type: 'TMC' | 'POULES_TABLEAU', nbPoules = 4): T
 /** Joue tous les matchs prêts : la paire la plus forte (plus petit numéro) gagne. */
 function jouer(t: Tournoi): Tournoi {
   for (let k = 0; k < 50; k++) {
+    t = propagerSorties(t);
     if (tableauxATirer(t).length) t = tirerTableauxApresPoules(t, 42);
     const pret = t.matchs.find((m) => !m.resultat && (() => {
       const a = resoudre(t, m.a), b = resoudre(t, m.b);
@@ -209,6 +210,23 @@ describe('tournoi complet', () => {
     expect(cf.complet).toBe(true);
     expect(cf.lignes.map((l) => l.place)).toEqual(Array.from({ length: 16 }, (_, i) => i + 1));
     expect(cf.lignes[0].paireId).toBe('p1');
+  });
+  it('abandon : la paire sort, ses matchs suivants sont gagnés par WO par l\'adversaire', () => {
+    let t = genererFormule(tournoiTest(16, 'TMC'), 123);
+    const m1 = t.matchs.find((m) => resoudre(t, m.a) === 'p16' || resoudre(t, m.b) === 'p16')!;
+    const v = resoudre(t, m1.a) === 'p16' ? 'B' : 'A';
+    t = propagerSorties(saisirResultat(t, m1.id, { sets: [[6, 2], [1, 0]].map(([x, y]) => (v === 'A' ? [x, y] : [y, x])) as [number, number][], vainqueur: v, issue: 'ABANDON' }));
+    t = jouer(t);
+    const deP16 = t.matchs.filter((m) => m.id !== m1.id && (resoudre(t, m.a) === 'p16' || resoudre(t, m.b) === 'p16'));
+    expect(deP16.length).toBe(3); // 4 matchs en TMC 16 : les 3 derniers ne sont pas joués
+    expect(deP16.every((m) => m.resultat?.auto && !m.debut)).toBe(true);
+    expect(t.matchs.filter((m) => m.resultat?.auto).length).toBe(3);
+    const cf = classementFinal(t);
+    expect(cf.complet).toBe(true);
+    expect(cf.lignes.at(-1)!.paireId).toBe('p16');
+    // annuler l'abandon remet les matchs suivants à jouer
+    const t2 = propagerSorties(saisirResultat(t, m1.id, undefined));
+    expect(t2.matchs.some((m) => m.resultat?.auto)).toBe(false);
   });
   it('poules + tableau final, 14 paires en 4 poules', () => {
     let t = genererFormule(tournoiTest(14, 'POULES_TABLEAU', 4), 5);

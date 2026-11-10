@@ -228,6 +228,42 @@ export function dependantsJoues(t: Tournoi, matchId: string): Match[] {
   return res;
 }
 
+/** Paires sorties du tournoi : perdantes d'un match sur WO, abandon ou disqualification. */
+export function pairesSorties(t: Tournoi): Set<string> {
+  const res = new Set<string>();
+  for (const m of t.matchs) {
+    if (!m.resultat || m.resultat.issue === 'NORMAL') continue;
+    const p = resoudre(t, { k: 'perdant', matchId: m.id });
+    if (p && p !== 'BYE') res.add(p);
+  }
+  return res;
+}
+
+/**
+ * Une paire sortie (abandon, WO, disqualification) ne joue plus : chacun de ses matchs suivants
+ * est donné gagné par WO à l'adversaire et retiré du planning. Recalculé à chaque modification,
+ * donc annuler le WO d'origine remet les matchs suivants à jouer.
+ */
+export function propagerSorties(t: Tournoi): Tournoi {
+  let matchs = t.matchs.map((m) => (m.resultat?.auto ? { ...m, resultat: undefined } : m));
+  for (let tour = 0; tour <= matchs.length; tour++) {
+    const x = { ...t, matchs };
+    const sorties = pairesSorties(x);
+    let change = false;
+    matchs = matchs.map((m) => {
+      if (m.resultat || !sorties.size) return m;
+      const a = resoudre(x, m.a), b = resoudre(x, m.b);
+      if (!a || !b || a === 'BYE' || b === 'BYE' || (!sorties.has(a) && !sorties.has(b))) return m;
+      change = true;
+      const vainqueur = sorties.has(a) && !sorties.has(b) ? 'B' : 'A';
+      return { ...m, debut: undefined, terrainId: undefined, verrouille: undefined, resultat: { sets: scoreForfait(m.format, vainqueur), vainqueur, issue: 'WO' as const, auto: true } };
+    });
+    if (!change) break;
+  }
+  const inchange = matchs.every((m, i) => JSON.stringify(m) === JSON.stringify(t.matchs[i]));
+  return inchange ? t : { ...t, matchs };
+}
+
 export function saisirResultat(t: Tournoi, matchId: string, r: Resultat | undefined): Tournoi {
   return { ...t, matchs: t.matchs.map((m) => (m.id === matchId ? { ...m, resultat: r } : m)) };
 }

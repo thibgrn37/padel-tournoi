@@ -12,7 +12,7 @@ function Equipe({ t, m, cote }: { t: Tournoi; m: Match; cote: 'A' | 'B' }) {
   const sets = m.resultat?.sets.map(([a, b]) => (cote === 'A' ? a : b)) ?? [];
   return (
     <div className={`a-equipe ${gagne ? 'a-gagnant' : ''} ${perd ? 'a-perdant' : ''}`}>
-      <span className="a-nom">{id ? nomPaireId(t, id) : <i className="a-attente">{provenance(t, ref)}</i>}</span>
+      <span className="a-nom">{m.resultat?.auto && perd ? <i className="a-attente">Forfait</i> : id ? nomPaireId(t, id) : <i className="a-attente">{provenance(t, ref)}</i>}</span>
       {m.resultat && m.resultat.issue !== 'WO' && <span className="a-sets">{sets.map((s, i) => <b key={i}>{s}</b>)}</span>}
       {m.resultat?.issue === 'WO' && gagne && <span className="a-sets">WO</span>}
     </div>

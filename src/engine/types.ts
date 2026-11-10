@@ -80,6 +80,8 @@ export interface Resultat {
   sets: [number, number][];
   vainqueur: 'A' | 'B';
   issue: Issue;
+  /** WO posé automatiquement : l'adversaire était déjà sorti (abandon, WO ou disqualification). */
+  auto?: boolean;
 }
 
 export type Ref =

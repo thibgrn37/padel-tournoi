@@ -42,7 +42,7 @@ export function planifier(t: Tournoi): ResultatPlanning {
   const fixes = new Map<string, Match>();
   const aPlanifier: Match[] = [];
   for (const m of t.matchs) {
-    if (estExempt(t, m)) continue;
+    if (estExempt(t, m) || m.resultat?.auto) continue;
     if ((m.resultat || m.verrouille) && m.debut && m.terrainId && occupation.has(m.terrainId)) {
       fixes.set(m.id, m);
       const d = debutEnMinutes(m.debut);

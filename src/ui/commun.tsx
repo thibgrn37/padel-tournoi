@@ -18,6 +18,7 @@ export function Problemes({ liste, okTexte }: { liste: Probleme[]; okTexte?: str
 export const texteScore = (r?: Resultat) => {
   if (!r) return '';
   const s = r.sets.map(([a, b]) => `${a}-${b}`).join(' ');
+  if (r.auto) return 'WO (paire sortie)';
   return r.issue === 'WO' ? 'WO' : r.issue === 'ABANDON' ? `${s} ab.` : r.issue === 'DISQUALIFICATION' ? `${s} disq.` : s;
 };
 
@@ -35,8 +36,8 @@ export function LigneMatch({ t, m, onClic }: { t: Tournoi; m: Match; onClic?: ()
         <span>{m.libelle}</span>
         <span className="muted">{m.format}{m.debut ? ` · ${dateCourte(m.debut)} ${heure(m.debut)}` : ''}{terrain ? ` · ${terrain}` : ''}</span>
       </div>
-      <div className={`equipe ${r?.vainqueur === 'A' ? 'gagnant' : ''}`}>{nomPaireId(t, a)}</div>
-      <div className={`equipe ${r?.vainqueur === 'B' ? 'gagnant' : ''}`}>{nomPaireId(t, b)}</div>
+      <div className={`equipe ${r?.vainqueur === 'A' ? 'gagnant' : ''}`}>{r?.auto && r.vainqueur === 'B' ? <i className="muted">Forfait</i> : nomPaireId(t, a)}</div>
+      <div className={`equipe ${r?.vainqueur === 'B' ? 'gagnant' : ''}`}>{r?.auto && r.vainqueur === 'A' ? <i className="muted">Forfait</i> : nomPaireId(t, b)}</div>
       {r && <div className="score">{texteScore(r)}</div>}
     </div>
   );
