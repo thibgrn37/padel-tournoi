@@ -67,7 +67,7 @@ export function MiseAJour({ verifManuelle }: { verifManuelle: number }) {
     <div className="bandeau maj">
       {etat.k === 'dispo' && (
         <>
-          <span>🎉 Nouvelle version <b>{etat.version}</b> disponible.{etat.notes ? ` ${etat.notes}` : ''}</span>
+          <span>🎉 Nouvelle version <b>{etat.version}</b> disponible.</span>
           <button onClick={() => etat.installer().catch((e) => setEtat({ k: 'erreur', message: String(e) }))}>Mettre à jour maintenant</button>
           <button className="secondaire" onClick={() => setEtat({ k: 'rien' })}>Plus tard</button>
         </>
