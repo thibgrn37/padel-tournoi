@@ -23,12 +23,12 @@ Chaque modification poussée sur `main` reconstruit l'application (GitHub Action
 2. **Inscrits** : saisie à la main ou import Excel/CSV (tu choisis les colonnes).
 3. **Formule & tirage** : formules possibles calculées pour ton nombre de paires, formats autorisés, tirage au sort enregistré. Le bloc **Temps disponible** indique si tout tient dans les journées prévues et propose des pistes (formats, terrains, horaires, pauses, formule) à appliquer d'un clic.
 4. **Poules & tableaux** : classements des poules, tableaux en arbre, tirage des tableaux à la fin des poules.
-5. **Planning** : calcul automatique (repos, pauses, 12 h entre journées), modification à la main.
+5. **Planning** : calcul automatique (repos, pauses, 12 h entre journées), glisser-déposer des matchs, bouton « Retard » pour décaler les matchs restants, convocations à copier ou imprimer.
 6. **Résultats** : saisie des scores (ex. `6-4 3-6 10-8`), WO, abandons.
 7. **Classement** : classement final, export CSV.
 8. **Visualisation** : affichage sur TV ou vidéoprojecteur (programme, poules, arbres, classement) qui défile toutes les X secondes ; logo, titre et couleurs personnalisables. « Diffuser sur un écran » ouvre une fenêtre à glisser sur l'écran, double-clic pour le plein écran.
 
-Le tournoi est sauvegardé automatiquement. **Enregistrer…** crée un fichier `.padel.json` (sauvegarde ou transfert vers un autre ordinateur).
+Le tournoi est sauvegardé automatiquement et rangé dans l'**Historique**. ↶ / ↷ (⌘Z / ⇧⌘Z) annulent et rétablissent la dernière action. **Enregistrer…** crée un fichier `.padel.json` (sauvegarde ou transfert vers un autre ordinateur).
 
 Les règles appliquées et les choix d'interprétation sont décrits dans [docs/regles-fft-2026.md](docs/regles-fft-2026.md).
 

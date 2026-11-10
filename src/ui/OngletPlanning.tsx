@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { controlesPlanning, debutEnMinutes, duree, planifier } from '../engine/planning';
+import { controlesPlanning, convocations, debutEnMinutes, decalerMatchs, duree, planifier } from '../engine/planning';
 import { DEF_FORMATS, FORMATS } from '../engine/regles';
 import { estExempt, nomPaireId, resoudre } from '../engine/tournoi';
 import type { FormatCode, Match, Tournoi } from '../engine/types';
-import { heure, PastilleBalles, Problemes, texteScore } from './commun';
+import { dateCourte, heure, PastilleBalles, Problemes, texteScore } from './commun';
 import { confirmer } from './stockage';
 
 type Maj = (f: (t: Tournoi) => Tournoi) => void;
@@ -17,6 +17,8 @@ export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
   const [edition, setEdition] = useState<Match | null>(null);
   const [message, setMessage] = useState('');
   const [glisse, setGlisse] = useState<string | null>(null);
+  const [retard, setRetard] = useState(false);
+  const [convoc, setConvoc] = useState(false);
   const [survol, setSurvol] = useState<string | null>(null);
   /** Dépose le match glissé sur un créneau : échange avec le match qui s'y trouve, s'il y en a un. */
   const deposer = (debut: string, terrainId: string) => {
@@ -67,9 +69,17 @@ export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
     <div>
       <div className="barre">
         <button onClick={calculer} disabled={!t.matchs.length}>{planifies.length ? 'Recalculer le planning' : 'Calculer le planning'}</button>
+        <button className="secondaire" onClick={() => setRetard(true)} disabled={!planifies.some((m) => !m.resultat)}>⏱ Retard…</button>
+        <button className={convoc ? '' : 'secondaire'} onClick={() => setConvoc((x) => !x)} disabled={!planifies.length}>{convoc ? 'Retour au planning' : '✉️ Convocations'}</button>
         <span className="muted">{planifies.length} match(s) programmé(s){nonPlanifies.length ? `, ${nonPlanifies.length} non programmé(s)` : ''}. Glisse un match sur un autre créneau pour le déplacer (sur un match : ils s'échangent), ou clique dessus pour choisir l'heure exacte.</span>
       </div>
       {message && <p className="info">{message}</p>}
+      {retard && <Retard t={t} onFermer={() => setRetard(false)} onValider={(date, min, depuis) => {
+        maj((x) => decalerMatchs(x, date, min, depuis));
+        setRetard(false);
+        setMessage(`Matchs du ${dateCourte(date + 'T12:00')} à partir de ${depuis} décalés de ${min > 0 ? '+' : ''}${min} min. Vérifie les alertes ci-dessous (fin de journée, pauses).`);
+      }} />}
+      {convoc ? <Convocations t={t} /> : <>
       <Problemes liste={controlesPlanning(t)} okTexte={planifies.length ? 'Temps de repos, nombre de matchs par jour et terrains respectés' : undefined} />
       {jours.map((j) => {
         const ms = planifies.filter((m) => m.debut!.startsWith(j)).sort((a, b) => a.debut!.localeCompare(b.debut!) || (a.terrainId ?? '').localeCompare(b.terrainId ?? ''));
@@ -109,6 +119,7 @@ export function OngletPlanning({ t, maj }: { t: Tournoi; maj: Maj }) {
           <ul>{nonPlanifies.map((m) => <li key={m.id} {...source(m)} className="glissable"><button className="lien" onClick={() => setEdition(m)}>{m.libelle}</button></li>)}</ul>
         </section>
       )}
+      </>}
       {edition && <EditionMatch t={t} m={edition} onFermer={() => setEdition(null)} onValider={(m) => { maj((x) => ({ ...x, matchs: x.matchs.map((y) => (y.id === m.id ? m : y)) })); setEdition(null); }} />}
     </div>
   );
@@ -150,5 +161,83 @@ function EditionMatch({ t, m, onValider, onFermer }: { t: Tournoi; m: Match; onV
         </div>
       </div>
     </div>
+  );
+}
+
+function Retard({ t, onValider, onFermer }: { t: Tournoi; onValider: (date: string, minutes: number, depuis: string) => void; onFermer: () => void }) {
+  const jours = [...new Set(t.matchs.filter((m) => !m.resultat && m.debut).map((m) => m.debut!.slice(0, 10)))].sort();
+  const auj = new Date();
+  const aujTexte = `${auj.getFullYear()}-${String(auj.getMonth() + 1).padStart(2, '0')}-${String(auj.getDate()).padStart(2, '0')}`;
+  const [date, setDate] = useState(jours.includes(aujTexte) ? aujTexte : jours[0] ?? '');
+  const [depuis, setDepuis] = useState(jours.includes(aujTexte) ? `${String(auj.getHours()).padStart(2, '0')}:${String(auj.getMinutes()).padStart(2, '0')}` : '00:00');
+  const [minutes, setMinutes] = useState(30);
+  const n = t.matchs.filter((m) => !m.resultat && m.debut?.startsWith(date) && m.debut.slice(11, 16) >= depuis).length;
+  return (
+    <div className="modale-fond" onClick={onFermer}>
+      <div className="modale" onClick={(e) => e.stopPropagation()}>
+        <h3>Retard sur le planning</h3>
+        <div className="ligne">
+          <label>Jour
+            <select value={date} onChange={(e) => setDate(e.target.value)}>
+              {jours.map((j) => <option key={j} value={j}>{dateCourte(j + 'T12:00')}</option>)}
+            </select>
+          </label>
+          <label>Matchs prévus à partir de<input type="time" value={depuis} onChange={(e) => setDepuis(e.target.value)} /></label>
+        </div>
+        <div className="ligne">
+          {[10, 15, 20, 30, 45, 60].map((x) => <button key={x} className={minutes === x ? '' : 'secondaire'} onClick={() => setMinutes(x)}>+{x} min</button>)}
+          <label>Autre<input type="number" step={5} value={minutes} onChange={(e) => setMinutes(+e.target.value)} style={{ width: 80 }} /></label>
+        </div>
+        <p className="aide">{n} match(s) non joué(s) seront décalés de {minutes} min (une valeur négative les avance). Les matchs déjà joués ne bougent pas.</p>
+        <div className="actions">
+          <button className="secondaire" onClick={onFermer}>Annuler</button>
+          <button onClick={() => onValider(date, minutes, depuis)} disabled={!n || !minutes}>Décaler</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Convocations({ t }: { t: Tournoi }) {
+  const [avance, setAvance] = useState(30);
+  const [copie, setCopie] = useState('');
+  const liste = convocations(t, avance).sort((a, b) => (a.heure ?? '9999').localeCompare(b.heure ?? '9999'));
+  const jourLong = (d: string) => new Date(d.slice(0, 10) + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const terrain = (id?: string) => t.terrains.find((x) => x.id === id)?.nom ?? '';
+  const texte = (c: (typeof liste)[number]) => {
+    if (!c.match || !c.heure) return `${nomPaireId(t, c.paireId)} : horaire à venir (dépend des résultats précédents).`;
+    return `🎾 ${t.nom}${t.lieu ? ` — ${t.lieu}` : ''}\n${nomPaireId(t, c.paireId)} : convocation le ${jourLong(c.heure)} à ${heure(c.heure)}.\n`
+      + `Match à ${heure(c.match.debut)}${terrain(c.match.terrainId) ? ` sur le ${terrain(c.match.terrainId)}` : ''}`
+      + `${c.adversaire && c.adversaire !== 'BYE' ? ` contre ${nomPaireId(t, c.adversaire)}` : ''} (${c.match.libelle}).`;
+  };
+  const tout = liste.map(texte).join('\n\n');
+  const copier = async (s: string, cle: string) => {
+    try { await navigator.clipboard.writeText(s); setCopie(cle); setTimeout(() => setCopie(''), 1500); } catch { /* copie manuelle dans la zone de texte */ }
+  };
+  return (
+    <section className="carte">
+      <h2>Convocations</h2>
+      <div className="barre">
+        <span>Convoquer <input type="number" min={0} step={5} value={avance} onChange={(e) => setAvance(Math.max(0, +e.target.value))} style={{ width: 70, display: 'inline-block' }} /> min avant le match</span>
+        <button onClick={() => copier(tout, 'tout')}>{copie === 'tout' ? '✓ Copié' : 'Tout copier'}</button>
+        <button className="secondaire" onClick={() => window.print()}>Imprimer</button>
+      </div>
+      <p className="aide">Chaque paire est convoquée à son prochain match programmé. Copie le message d'une paire pour l'envoyer par SMS, WhatsApp ou e-mail.</p>
+      <table className="tableau-simple convocations">
+        <thead><tr><th>Paire</th><th>Convocation</th><th>Match</th><th>Terrain</th><th>Adversaire</th><th></th></tr></thead>
+        <tbody>
+          {liste.map((c) => (
+            <tr key={c.paireId}>
+              <td>{nomPaireId(t, c.paireId)}</td>
+              <td><b>{c.heure ? `${dateCourte(c.heure)} ${heure(c.heure)}` : '—'}</b></td>
+              <td>{c.match ? <>{heure(c.match.debut)} <span className="muted">· {c.match.libelle}</span></> : <span className="muted">à venir</span>}</td>
+              <td>{terrain(c.match?.terrainId)}</td>
+              <td>{c.adversaire ? (c.adversaire === 'BYE' ? 'exempt' : nomPaireId(t, c.adversaire)) : c.match ? <span className="muted">à déterminer</span> : ''}</td>
+              <td><button className="lien" onClick={() => copier(texte(c), c.paireId)}>{copie === c.paireId ? '✓ Copié' : 'Copier'}</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }

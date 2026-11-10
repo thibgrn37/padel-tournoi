@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { nouveauTournoi, propagerSorties } from './engine/tournoi';
 import type { Tournoi } from './engine/types';
 import { OngletFormule } from './ui/OngletFormule';
@@ -9,7 +9,8 @@ import { OngletTableaux } from './ui/OngletTableaux';
 import { OngletTournoi } from './ui/OngletTournoi';
 import { OngletVisualisation } from './ui/OngletVisualisation';
 import { MiseAJour, useVersion } from './ui/MiseAJour';
-import { avertir, chargerAuto, choisirFichier, confirmer, enregistrerFichier, nomFichier, sauverAuto, avecClub, sauverClub } from './ui/stockage';
+import { avertir, chargerAuto, choisirFichier, confirmer, enregistrerFichier, nomFichier, sauverAuto, avecClub, sauverClub, archiver, avecId } from './ui/stockage';
+import { Historique } from './ui/Historique';
 
 const ONGLETS = [
   ['tournoi', '1. Tournoi'],
@@ -24,12 +25,69 @@ const ONGLETS = [
 type Onglet = (typeof ONGLETS)[number][0];
 
 export default function App() {
-  const [t, setT] = useState<Tournoi>(() => propagerSorties(chargerAuto() ?? avecClub(nouveauTournoi())));
+  const [t, setTEtat] = useState<Tournoi>(() => avecId(propagerSorties(chargerAuto() ?? avecClub(nouveauTournoi()))));
+  const courant = useRef(t);
+  // Annuler / rétablir : pile des états précédents (les modifications rapprochées, comme la frappe, sont regroupées)
+  const passe = useRef<Tournoi[]>([]);
+  const futur = useRef<Tournoi[]>([]);
+  const dernierAjout = useRef(0);
+  const [, rafraichir] = useState(0);
+  const remplacer = (n: Tournoi, garderHistorique = false) => {
+    if (!garderHistorique) { passe.current = []; futur.current = []; }
+    courant.current = n;
+    setTEtat(n);
+  };
+  const setT = (n: Tournoi) => { archiver(courant.current); remplacer(avecId(n)); };
   const [onglet, setOnglet] = useState<Onglet>('tournoi');
   const version = useVersion();
   const [verifMaj, setVerifMaj] = useState(0);
-  const maj = useCallback((f: (t: Tournoi) => Tournoi) => setT((x) => propagerSorties(f(x))), []);
+  const maj = useCallback((f: (t: Tournoi) => Tournoi) => {
+    const x = courant.current;
+    const n = propagerSorties(f(x));
+    if (n === x) return;
+    const maintenant = Date.now();
+    // la frappe dans un champ est regroupée en une seule étape ; chaque clic compte pour une étape
+    const frappe = !!document.activeElement?.matches('input:not([type=checkbox]):not([type=radio]):not([type=color]), textarea');
+    if (!frappe || maintenant - dernierAjout.current > 1000) {
+      passe.current = [...passe.current.slice(-49), x];
+      dernierAjout.current = maintenant;
+    }
+    futur.current = [];
+    courant.current = n;
+    setTEtat(n);
+  }, []);
+  const annuler = useCallback(() => {
+    const p = passe.current.pop();
+    if (!p) return;
+    futur.current.push(courant.current);
+    dernierAjout.current = 0;
+    remplacer(p, true);
+    rafraichir((k) => k + 1);
+  }, []);
+  const retablir = useCallback(() => {
+    const f = futur.current.pop();
+    if (!f) return;
+    passe.current.push(courant.current);
+    dernierAjout.current = 0;
+    remplacer(f, true);
+    rafraichir((k) => k + 1);
+  }, []);
+  useEffect(() => {
+    const touche = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const cible = e.target as HTMLElement;
+      if (cible.closest('input, textarea, select, [contenteditable]')) return; // annulation native du champ
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); annuler(); }
+      else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); retablir(); }
+    };
+    window.addEventListener('keydown', touche);
+    return () => window.removeEventListener('keydown', touche);
+  }, [annuler, retablir]);
   useEffect(() => sauverAuto(t), [t]);
+  // historique des tournois (enregistré une seconde après la dernière modification)
+  useEffect(() => { const id = setTimeout(() => archiver(t), 1000); return () => clearTimeout(id); }, [t]);
+  const [histo, setHisto] = useState(false);
   // terrains, structure et visuel deviennent les réglages par défaut des prochains tournois
   useEffect(() => sauverClub(t), [t.terrains, t.lieu, t.affichage]);
 
@@ -47,7 +105,7 @@ export default function App() {
   };
   const enregistrer = () => enregistrerFichier(JSON.stringify(t, null, 2), `${nomFichier(t)}.padel.json`, 'json');
   const nouveau = async () => {
-    if (await confirmer('Créer un nouveau tournoi ? Pense à enregistrer le tournoi actuel avant.')) { setT(avecClub(nouveauTournoi())); setOnglet('tournoi'); }
+    if (await confirmer('Créer un nouveau tournoi ? Le tournoi actuel reste disponible dans l\'Historique.')) { setT(avecClub(nouveauTournoi())); setOnglet('tournoi'); }
   };
 
   return (
@@ -61,7 +119,10 @@ export default function App() {
           </div>
         </div>
         <div className="actions-entete">
+          <button className="secondaire" onClick={annuler} disabled={!passe.current.length} title="Annuler (⌘Z)">↶</button>
+          <button className="secondaire" onClick={retablir} disabled={!futur.current.length} title="Rétablir (⇧⌘Z)">↷</button>
           <button className="secondaire" onClick={nouveau}>Nouveau</button>
+          <button className="secondaire" onClick={() => setHisto(true)}>Historique</button>
           <button className="secondaire" onClick={ouvrir}>Ouvrir…</button>
           <button className="secondaire" onClick={enregistrer}>Enregistrer…</button>
           <button className="secondaire" onClick={() => window.print()}>Imprimer</button>
@@ -74,6 +135,7 @@ export default function App() {
         ))}
       </nav>
       <MiseAJour verifManuelle={verifMaj} />
+      {histo && <Historique courantId={t.id} onFermer={() => setHisto(false)} onOuvrir={(x) => { setT(propagerSorties(x)); setHisto(false); setOnglet('tournoi'); }} />}
       <main>
         {onglet === 'tournoi' && <OngletTournoi t={t} maj={maj} />}
         {onglet === 'inscrits' && <OngletInscrits t={t} maj={maj} />}

@@ -167,6 +167,8 @@ export interface Affichage {
 
 export interface Tournoi {
   version: 1;
+  /** Identifiant stable (historique des tournois). */
+  id?: string;
   nom: string;
   lieu?: string;
   categorie: Categorie;

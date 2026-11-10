@@ -203,3 +203,43 @@ export function controlesPlanning(t: Tournoi): Probleme[] {
   }
   return pb;
 }
+
+/**
+ * Retard : décale de `minutes` les matchs non joués programmés ce jour-là à partir de `aPartirDe` (HH:mm).
+ * Les matchs verrouillés sont décalés aussi (le retard concerne tout le monde).
+ */
+export function decalerMatchs(t: Tournoi, date: string, minutes: number, aPartirDe = '00:00'): Tournoi {
+  const seuil = versMinutes(date, aPartirDe);
+  return {
+    ...t,
+    matchs: t.matchs.map((m) => {
+      if (m.resultat || !m.debut || !m.debut.startsWith(date) || debutEnMinutes(m.debut) < seuil) return m;
+      return { ...m, debut: versTexte(debutEnMinutes(m.debut) + minutes) };
+    }),
+  };
+}
+
+export interface Convocation {
+  paireId: string;
+  /** Prochain match programmé et non joué de la paire. */
+  match?: Match;
+  /** Heure de convocation (AAAA-MM-JJTHH:mm) = début du match moins l'avance demandée. */
+  heure?: string;
+  adversaire?: string | null;
+}
+
+/** Convocation de chaque paire engagée à son prochain match programmé. */
+export function convocations(t: Tournoi, avanceMinutes: number): Convocation[] {
+  const ids = (t.ordrePaires ?? t.paires.filter((p) => !p.forfait).map((p) => p.id));
+  const aVenir = t.matchs
+    .filter((m) => !m.resultat && m.debut && !estExempt(t, m))
+    .sort((a, b) => a.debut!.localeCompare(b.debut!));
+  return ids.map((id) => {
+    for (const m of aVenir) {
+      const a = resoudre(t, m.a), b = resoudre(t, m.b);
+      if (a !== id && b !== id) continue;
+      return { paireId: id, match: m, heure: versTexte(debutEnMinutes(m.debut!) - avanceMinutes), adversaire: a === id ? b : a };
+    }
+    return { paireId: id };
+  });
+}

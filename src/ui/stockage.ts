@@ -3,6 +3,45 @@ import type { Tournoi } from '../engine/types';
 
 const CLE = 'padel-tournoi:courant';
 const CLE_CLUB = 'padel-tournoi:club';
+const CLE_HISTO = 'padel-tournoi:historique';
+
+export interface EntreeHistorique { id: string; nom: string; categorie: string; date?: string; nbPaires: number; modifie: string; data: Tournoi }
+
+export function avecId(t: Tournoi): Tournoi {
+  return t.id ? t : { ...t, id: `tn${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}` };
+}
+
+export function lireHistorique(): EntreeHistorique[] {
+  try {
+    const s = localStorage.getItem(CLE_HISTO);
+    const l = s ? (JSON.parse(s) as EntreeHistorique[]) : [];
+    return l.sort((a, b) => b.modifie.localeCompare(a.modifie));
+  } catch {
+    return [];
+  }
+}
+
+function ecrireHistorique(l: EntreeHistorique[]) {
+  const liste = [...l].sort((a, b) => b.modifie.localeCompare(a.modifie));
+  // si la place manque, on retire les plus anciens
+  while (liste.length) {
+    try { localStorage.setItem(CLE_HISTO, JSON.stringify(liste)); return; } catch { liste.pop(); }
+  }
+}
+
+/** Range le tournoi dans l'historique (un tournoi vide n'y est pas gardé). */
+export function archiver(t: Tournoi) {
+  if (!t.id || (!t.paires.length && t.nom === 'Nouveau tournoi')) return;
+  const e: EntreeHistorique = {
+    id: t.id, nom: t.nom, categorie: t.categorie, date: t.journees[0]?.date, nbPaires: t.paires.filter((p) => !p.forfait).length,
+    modifie: new Date().toISOString(), data: t,
+  };
+  ecrireHistorique([e, ...lireHistorique().filter((x) => x.id !== t.id)]);
+}
+
+export function supprimerHistorique(id: string) {
+  ecrireHistorique(lireHistorique().filter((x) => x.id !== id));
+}
 
 /** Réglages du club repris à chaque nouveau tournoi : terrains, nom de la structure, visuel. */
 interface Club { terrains: Tournoi['terrains']; lieu?: string; affichage?: Tournoi['affichage'] }

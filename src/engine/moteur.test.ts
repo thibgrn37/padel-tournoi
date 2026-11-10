@@ -8,7 +8,7 @@ import { creerRng, Journal } from './tirage';
 import {
   classementFinal, genererFormule, matchsMinimumGarantis, nouveauTournoi, propagerSorties, resoudre, saisirResultat, tableauxATirer, tirerTableauxApresPoules,
 } from './tournoi';
-import { controlesPlanning, debutEnMinutes, planifier, vagues } from './planning';
+import { controlesPlanning, convocations, debutEnMinutes, decalerMatchs, planifier, vagues } from './planning';
 import { besoinBalles } from './balles';
 import { numeroTS } from './tableau';
 import { controlesFormule, controlesInscrits } from './controles';
@@ -242,6 +242,18 @@ describe('tournoi complet', () => {
     expect(min(3)).toBeGreaterThanOrEqual(max(2));
     const finale = t.matchs.find((m) => v.get(m.id) === 3)!;
     expect(debut(finale.id)).toBe(Math.max(...t.matchs.filter((m) => m.debut).map((m) => debut(m.id))));
+  });
+  it('retard et convocations', () => {
+    const { tournoi: t } = planifier(genererFormule(tournoiTest(16, 'TMC'), 7));
+    const jour = t.matchs.find((m) => m.debut)!.debut!.slice(0, 10);
+    const d = decalerMatchs(t, jour, 30, '00:00');
+    t.matchs.forEach((m, i) => {
+      if (m.debut?.startsWith(jour)) expect(debutEnMinutes(d.matchs[i].debut!)).toBe(debutEnMinutes(m.debut) + 30);
+    });
+    const c = convocations(t, 30);
+    expect(c.length).toBe(16);
+    expect(c.every((x) => x.match && x.adversaire)).toBe(true);
+    expect(debutEnMinutes(c[0].heure!)).toBe(debutEnMinutes(c[0].match!.debut!) - 30);
   });
   it('têtes de série : moitié du tableau, dans l\'ordre', () => {
     const t = genererFormule(tournoiTest(16, 'TMC'), 7);
