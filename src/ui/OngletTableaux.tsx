@@ -1,21 +1,12 @@
 import { useState } from 'react';
 import { classementPoule, pouleTerminee } from '../engine/poules';
-import { nomPaireId, resoudre, saisirResultat, tableauxATirer, tirerTableauxApresPoules } from '../engine/tournoi';
-import type { Match, Tableau, Tournoi } from '../engine/types';
+import { nomPaireId, saisirResultat, tableauxATirer, tirerTableauxApresPoules } from '../engine/tournoi';
+import type { Match, Tournoi } from '../engine/types';
 import { LigneMatch, SaisieScore } from './commun';
+import { Arbre } from './Arbre';
+import { arbres } from '../engine/arbres';
 
 type Maj = (f: (t: Tournoi) => Tournoi) => void;
-
-/** Regroupe les matchs d'un tableau par « bloc de places » puis par tour. */
-function blocs(t: Tournoi, tab: Tableau) {
-  const ms = t.matchs.filter((m) => m.groupeId === tab.id);
-  const groupes = new Map<string, Match[]>();
-  for (const m of ms) {
-    const cle = m.bloc ?? tab.nom;
-    groupes.set(cle, [...(groupes.get(cle) ?? []), m]);
-  }
-  return [...groupes.entries()];
-}
 
 export function OngletTableaux({ t, maj }: { t: Tournoi; maj: Maj }) {
   const [saisie, setSaisie] = useState<Match | null>(null);
@@ -63,31 +54,30 @@ export function OngletTableaux({ t, maj }: { t: Tournoi; maj: Maj }) {
           </div>
         </>
       )}
-      {t.tableaux.map((tab) => (
-        <section key={tab.id}>
-          <h2>{tab.principal ? tab.nom : `Matchs de classement (places ${tab.rangDebut} et suivantes)`}</h2>
-          {tab.slots.some((s) => s === null) && <p className="muted">Tableau tiré au sort à la fin des poules.</p>}
-          {blocs(t, tab).map(([nom, ms]) => {
-            const tours = [...new Set(ms.map((m) => m.ordre - (m.ordre % 1000)))].sort((a, b) => a - b);
-            return (
-              <div key={nom} className="bloc">
-                {!tab.principal || nom !== tab.nom ? <h4>{nom}</h4> : null}
-                <div className="arbre">
-                  {tours.map((o) => (
-                    <div className="colonne" key={o}>
-                      {ms.filter((m) => m.ordre - (m.ordre % 1000) === o).map((m) => {
-                        const exempt = [resoudre(t, m.a), resoudre(t, m.b)].includes('BYE');
-                        return exempt ? <div key={m.id} className="match exempt">{m.libelle}<br /><span className="muted">exempt</span></div>
-                          : <LigneMatch key={m.id} t={t} m={m} onClic={() => setSaisie(m)} />;
-                      })}
-                    </div>
-                  ))}
-                </div>
+      {t.tableaux.map((tab) => {
+        const liste = arbres(t).filter((a) => a.racine.match.groupeId === tab.id);
+        const [premier, ...autres] = liste;
+        return (
+          <section key={tab.id} className="carte">
+            <h2>{tab.principal ? tab.nom : `Matchs de classement (places ${tab.rangDebut} et suivantes)`}</h2>
+            {tab.slots.some((s) => s === null) && <p className="muted">Les paires seront placées par tirage au sort à la fin des poules.</p>}
+            {premier && (
+              <div className="bloc">
+                {!premier.principal && <h4>{premier.titre}</h4>}
+                <Arbre t={t} arbre={premier} onClic={setSaisie} />
               </div>
-            );
-          })}
-        </section>
-      ))}
+            )}
+            <div className="arbres-grille">
+              {autres.map((a) => (
+                <div key={a.id}>
+                  <h4>{a.titre}</h4>
+                  <Arbre t={t} arbre={a} onClic={setSaisie} />
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
       {saisie && (
         <SaisieScore t={t} m={saisie} onFermer={() => setSaisie(null)}
           onValider={(r) => { maj((x) => saisirResultat(x, saisie.id, r)); setSaisie(null); }} />

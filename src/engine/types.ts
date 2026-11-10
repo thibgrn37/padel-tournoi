@@ -1,7 +1,7 @@
 // Modèle de données d'un tournoi. Tout est sérialisable en JSON.
 
 export type Sexe = 'H' | 'F';
-export type Categorie = 'P25' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000';
+export type Categorie = 'P25' | 'P50' | 'P100' | 'P250' | 'P500' | 'P1000' | 'P1500' | 'P2000';
 export type Discipline = 'DM' | 'DD' | 'DX'; // Messieurs, Dames, Mixte
 export type Public = 'SENIORS' | 'PLUS45' | 'PLUS55' | 'JEUNES';
 export type FormatCode = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'D1' | 'D2' | 'E' | 'F';
@@ -142,6 +142,25 @@ export interface Tirage {
   details: string[];
 }
 
+export interface CouleursAffichage {
+  fond: string;
+  texte: string;
+  accent: string; // titres
+  carte: string; // fond des matchs
+  gagnant: string;
+  traits: string; // lignes de l'arbre
+}
+
+export interface Affichage {
+  titre: string;
+  sousTitre: string;
+  /** Logo en data URL (image redimensionnée). */
+  logo?: string;
+  couleurs: CouleursAffichage;
+  rotationSecondes: number;
+  pages: { programme: boolean; poules: boolean; tableaux: boolean; classement: boolean };
+}
+
 export interface Tournoi {
   version: 1;
   nom: string;
@@ -163,4 +182,6 @@ export interface Tournoi {
   tableaux: Tableau[];
   matchs: Match[];
   tirages: Tirage[];
+  /** Réglages de l'écran de diffusion. */
+  affichage?: Affichage;
 }

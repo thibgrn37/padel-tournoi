@@ -19,13 +19,14 @@ Chaque modification poussée sur `main` reconstruit l'application (GitHub Action
 `TAURI_SIGNING_PRIVATE_KEY` (la clé publique est dans `src-tauri/tauri.conf.json`).
 
 ## Utilisation
-1. **Tournoi** : catégorie (P25…P2000), épreuve, journées, pauses, terrains, durée des matchs.
+1. **Tournoi** : catégorie (P25, P50…P2000), épreuve, journées, pauses, terrains, durée des matchs.
 2. **Inscrits** : saisie à la main ou import Excel/CSV (tu choisis les colonnes).
-3. **Formule & tirage** : formules possibles calculées pour ton nombre de paires, formats autorisés, tirage au sort enregistré.
-4. **Poules & tableaux** : classements des poules, tirage des tableaux à la fin des poules.
+3. **Formule & tirage** : formules possibles calculées pour ton nombre de paires, formats autorisés, tirage au sort enregistré. Le bloc **Temps disponible** indique si tout tient dans les journées prévues et propose des pistes (formats, terrains, horaires, pauses, formule) à appliquer d'un clic.
+4. **Poules & tableaux** : classements des poules, tableaux en arbre, tirage des tableaux à la fin des poules.
 5. **Planning** : calcul automatique (repos, pauses, 12 h entre journées), modification à la main.
 6. **Résultats** : saisie des scores (ex. `6-4 3-6 10-8`), WO, abandons.
 7. **Classement** : classement final, export CSV.
+8. **Visualisation** : affichage sur TV ou vidéoprojecteur (programme, poules, arbres, classement) qui défile toutes les X secondes ; logo, titre et couleurs personnalisables. « Diffuser sur un écran » ouvre une fenêtre à glisser sur l'écran, double-clic pour le plein écran.
 
 Le tournoi est sauvegardé automatiquement. **Enregistrer…** crée un fichier `.padel.json` (sauvegarde ou transfert vers un autre ordinateur).
 

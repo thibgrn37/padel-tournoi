@@ -2,7 +2,8 @@
 // Les numéros de page renvoient au PDF « guide-de-la-competition-PADEL-2026 ».
 import type { Categorie, Discipline, FormatCode, Public, Sexe } from './types';
 
-export const CATEGORIES: Categorie[] = ['P25', 'P100', 'P250', 'P500', 'P1000', 'P1500', 'P2000'];
+// P50 (saison 2026-2027) : cuts confirmés ; formats, minimum de paires et durée encore provisoires (calqués sur le P25)
+export const CATEGORIES: Categorie[] = ['P25', 'P50', 'P100', 'P250', 'P500', 'P1000', 'P1500', 'P2000'];
 export const FORMATS: FormatCode[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'D1', 'D2', 'E', 'F'];
 
 export interface DefFormat {
@@ -124,6 +125,8 @@ export function poidsPaire(
 
 // Chapitre II / III : « CUT » — les N meilleurs n'ont pas le droit de participer.
 export function interdictionTop(cat: Categorie, discipline: Discipline, pub: Public, sexe: Sexe): number | null {
+  // P50 (saison 2026-2027) : messieurs et hommes en mixte TOP 10 000, dames et femmes en mixte TOP 1 000
+  if (cat === 'P50' && pub !== 'JEUNES') return sexe === 'H' || discipline === 'DM' ? 10000 : 1000;
   if (discipline === 'DX' || pub === 'JEUNES') return null;
   const dames = sexe === 'F' && discipline === 'DD';
   const seniorsPlus = pub === 'PLUS45' || pub === 'PLUS55';
@@ -146,7 +149,8 @@ export function nbMinPaires(cat: Categorie, discipline: Discipline, pub: Public)
   }
   const dames = discipline === 'DD';
   switch (cat) {
-    case 'P25': return 4;
+    case 'P25':
+    case 'P50': return 4; // P50 provisoire
     case 'P100': return dames ? 4 : 8;
     case 'P250': return dames ? 4 : 12;
     case 'P500': return dames ? 8 : 16;
@@ -159,7 +163,7 @@ export function nbMinPaires(cat: Categorie, discipline: Discipline, pub: Public)
 /** Nombre minimum de terrains (Chapitre III). */
 export function nbMinTerrains(cat: Categorie, discipline: Discipline, pub: Public): number {
   if (pub === 'JEUNES') return cat === 'P250' ? 2 : 1;
-  if (cat === 'P25') return 1;
+  if (cat === 'P25' || cat === 'P50') return 1;
   if (cat === 'P100' || cat === 'P250') return 2;
   if (cat === 'P500' || cat === 'P1000') return discipline === 'DD' ? 2 : 3;
   return 4;
@@ -167,7 +171,7 @@ export function nbMinTerrains(cat: Categorie, discipline: Discipline, pub: Publi
 
 /** Durée maximum en jours (Chapitre III). */
 export function dureeMaxJours(cat: Categorie, pub: Public): number {
-  if (cat === 'P25') return 1;
+  if (cat === 'P25' || cat === 'P50') return 1;
   if (pub === 'JEUNES') return 3;
   if (cat === 'P1500' || cat === 'P2000') return 3; // 2,5 jours
   return 3;
@@ -187,12 +191,13 @@ const AB = ['A1', 'A2', 'B1', 'B2'] as FormatCode[];
 export function formatsAutorises(cat: Categorie, pub: Public, phase: PhaseFormat, tailleTour?: number): FormatCode[] {
   if (pub === 'JEUNES') {
     const avecPD: FormatCode[] = ['A2', 'B2', 'C2', 'D2'];
-    if (cat === 'P25') return [...avecPD, 'E', 'F'];
+    if (cat === 'P25' || cat === 'P50') return [...avecPD, 'E', 'F'];
     if (cat === 'P250' && phase === 'FINALE') return ['A2', 'B2'];
     return avecPD;
   }
   switch (cat) {
     case 'P25':
+    case 'P50':
       return ['C1', 'C2', 'D1', 'D2', 'E', 'F'];
     case 'P100':
       return SAUF_EF;
@@ -220,7 +225,8 @@ export function formatsAutorises(cat: Categorie, pub: Public, phase: PhaseFormat
 export function formatsParDefaut(cat: Categorie, pub: Public) {
   if (pub === 'JEUNES') return { poules: 'C2', tableau: 'C2', finale: cat === 'P250' ? 'B2' : 'C2', classement: 'C2' } as const;
   switch (cat) {
-    case 'P25': return { poules: 'C2', tableau: 'C2', finale: 'C2', classement: 'C2' } as const;
+    case 'P25':
+    case 'P50': return { poules: 'C2', tableau: 'C2', finale: 'C2', classement: 'C2' } as const;
     case 'P100': return { poules: 'C2', tableau: 'B2', finale: 'B2', classement: 'C2' } as const;
     case 'P250': return { poules: 'B2', tableau: 'B2', finale: 'B2', classement: 'C2' } as const;
     case 'P500': return { poules: 'B2', tableau: 'B2', finale: 'B2', classement: 'C2' } as const;
@@ -230,7 +236,7 @@ export function formatsParDefaut(cat: Categorie, pub: Public) {
 }
 
 /** Sélection des paires (Chapitre I) : par ordre d'inscription jusqu'au P250, au classement au-delà. */
-export const selectionAuClassement = (cat: Categorie) => !['P25', 'P100', 'P250'].includes(cat);
+export const selectionAuClassement = (cat: Categorie) => !['P25', 'P50', 'P100', 'P250'].includes(cat);
 
 /** Matchs minimum proposés par paire (Chapitre I). */
 export const matchsMinimum = (formatsUtilises: FormatCode[]) =>

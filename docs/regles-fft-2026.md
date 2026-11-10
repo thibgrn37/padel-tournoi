@@ -10,6 +10,7 @@ Le code correspondant est dans `src/engine/regles.ts` (règles), `poules.ts`, `t
 - Épreuve mixte : somme des classements respectifs, sans équivalence.
 - Égalité de poids : tirage au sort (enregistré dans le journal).
 - Cuts (P25 / P100 / P250) : messieurs TOP 20 000 / 2 000 / 500 ; dames TOP 1 000 / 300 / 100 ; +45/+55 messieurs TOP 30 000 / 3 000 / 750, dames TOP 3 000 / 300 / 100 ; pas de limite en mixte ni en jeunes.
+- P50 (règles données par l'organisateur) : 50 points par joueur de la paire gagnante, licence FFT dès 11 ans, interdit au TOP 10 000 en messieurs / mixte (hommes) et au TOP 1 000 en dames / mixte (femmes). Formats autorisés, nombre minimum de paires, terrains et durée : repris du P25 en attendant confirmation.
 - Sélection : ordre d'inscription jusqu'au P250, poids de paire à partir du P500.
 - Minimum de paires : moins de 4 = non homologuée ; sous le minimum du cahier des charges = rétrogradation (alerte).
 

@@ -3,10 +3,16 @@
   "identifier": "default",
   "description": "Permissions de la fenêtre principale",
   "windows": [
-    "main"
+    "main",
+    "diffusion"
   ],
   "permissions": [
     "core:default",
+    "core:window:allow-set-focus",
+    "core:window:allow-close",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-set-fullscreen",
+    "core:webview:allow-create-webview-window",
     "dialog:default",
     "fs:default",
     "fs:allow-write-text-file",

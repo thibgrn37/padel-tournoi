@@ -7,6 +7,7 @@ import { OngletPlanning } from './ui/OngletPlanning';
 import { OngletClassement, OngletResultats } from './ui/OngletResultats';
 import { OngletTableaux } from './ui/OngletTableaux';
 import { OngletTournoi } from './ui/OngletTournoi';
+import { OngletVisualisation } from './ui/OngletVisualisation';
 import { MiseAJour, useVersion } from './ui/MiseAJour';
 import { avertir, chargerAuto, choisirFichier, confirmer, enregistrerFichier, nomFichier, sauverAuto } from './ui/stockage';
 
@@ -18,6 +19,7 @@ const ONGLETS = [
   ['planning', '5. Planning'],
   ['resultats', '6. Résultats'],
   ['classement', '7. Classement'],
+  ['visualisation', '8. Visualisation'],
 ] as const;
 type Onglet = (typeof ONGLETS)[number][0];
 
@@ -78,6 +80,7 @@ export default function App() {
         {onglet === 'planning' && <OngletPlanning t={t} maj={maj} />}
         {onglet === 'resultats' && <OngletResultats t={t} maj={maj} />}
         {onglet === 'classement' && <OngletClassement t={t} />}
+        {onglet === 'visualisation' && <OngletVisualisation t={t} maj={maj} />}
       </main>
     </div>
   );

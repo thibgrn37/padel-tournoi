@@ -254,3 +254,42 @@ describe('tournoi complet', () => {
     expect(controlesInscrits(t).some((p) => p.message.includes('TOP 2'))).toBe(true);
   });
 });
+
+describe('estimation du temps', () => {
+  it('signale quand ça ne tient pas et propose des pistes qui tiennent', async () => {
+    const { estimer, suggestions } = await import('./estimation');
+    const t = tournoiTest(16, 'POULES_TABLEAU', 4);
+    t.terrains = t.terrains.slice(0, 2);
+    t.journees = [{ date: '2026-12-05', debut: '09:00', fin: '20:00' }];
+    const t0 = performance.now();
+    const e = estimer(t);
+    expect(e.tient).toBe(false);
+    const s = suggestions(t);
+    console.log(`estimation + ${s.length} pistes en ${Math.round(performance.now() - t0)} ms :`, s.map((x) => x.libelle).join(' | '));
+    expect(s.length).toBeGreaterThan(0);
+    expect(s.every((x) => x.estimation.tient)).toBe(true);
+  });
+  it('tient sur 2 jours avec 4 terrains', async () => {
+    const { estimer } = await import('./estimation');
+    const e = estimer(tournoiTest(16, 'POULES_TABLEAU', 4));
+    expect(e.tient).toBe(true);
+    expect(e.fin).toBeDefined();
+  });
+  it('P50 : cut TOP 10 000 messieurs', () => {
+    expect(interdictionTop('P50', 'DM', 'SENIORS', 'H')).toBe(10000);
+    expect(interdictionTop('P50', 'DX', 'SENIORS', 'F')).toBe(1000);
+    expect(interdictionTop('P50', 'DM', 'SENIORS', 'F')).toBe(10000);
+  });
+});
+
+describe('arbres', () => {
+  it('TMC 16 : un arbre par bloc de places, chaque match dans un seul arbre', async () => {
+    const { arbres } = await import('./arbres');
+    const t = genererFormule(tournoiTest(16, 'TMC'), 3);
+    const l = arbres(t);
+    expect(l[0].principal).toBe(true);
+    expect(l[0].profondeur).toBe(4);
+    const compte = (n: any): number => (n ? 1 + compte(n.enfants[0]) + compte(n.enfants[1]) : 0);
+    expect(l.reduce((s, a) => s + compte(a.racine), 0)).toBe(t.matchs.length);
+  });
+});

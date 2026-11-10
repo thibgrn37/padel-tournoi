@@ -5,6 +5,7 @@ import { taillesPoules } from '../engine/poules';
 import { estExempt, genererFormule, matchsMinimumGarantis, selection } from '../engine/tournoi';
 import type { FormatCode, FormatsChoisis, Formule, Tournoi } from '../engine/types';
 import { Problemes } from './commun';
+import { estimer, suggestions } from '../engine/estimation';
 import { avertir, confirmer } from './stockage';
 
 type Maj = (f: (t: Tournoi) => Tournoi) => void;
@@ -124,6 +125,8 @@ export function OngletFormule({ t, maj, allerA }: { t: Tournoi; maj: Maj; allerA
         <p className="aide">Le format de chaque match reste modifiable ensuite dans l'onglet Planning.</p>
       </section>
 
+      <Faisabilite t={t} maj={maj} />
+
       <section className="carte pleine">
         <h2>Conformité</h2>
         <Problemes liste={controlesFormule(t)} okTexte="Formule conforme au règlement" />
@@ -144,5 +147,51 @@ export function OngletFormule({ t, maj, allerA }: { t: Tournoi; maj: Maj; allerA
         ))}
       </section>
     </div>
+  );
+}
+
+const hm = (min: number) => `${Math.floor(min / 60)} h ${String(Math.round(min % 60)).padStart(2, '0')}`;
+const finLisible = (d?: string) =>
+  d ? `${new Date(d.slice(0, 10) + 'T12:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} à ${d.slice(11, 16)}` : '—';
+
+/** La formule tient-elle dans les journées / terrains prévus ? Sinon, pistes qui fonctionnent. */
+function Faisabilite({ t, maj }: { t: Tournoi; maj: Maj }) {
+  const cle = JSON.stringify([t.paires.length, t.paires.map((p) => p.forfait), t.formule, t.terrains.length, t.journees, t.pauses, t.reglages, t.categorie, t.public]);
+  const e = useMemo(() => estimer(t), [cle]);
+  const pistes = useMemo(() => (e.possible && !e.tient ? suggestions(t) : []), [cle, e]);
+  const taux = e.minutesDisponibles ? Math.round((e.minutesNecessaires / e.minutesDisponibles) * 100) : 0;
+  return (
+    <section className="carte pleine">
+      <h2>Temps disponible</h2>
+      {!e.possible ? <p className="muted">{e.erreur}</p> : (
+        <>
+          <p className={e.tient ? 'ok' : 'erreur-texte'}>
+            {e.tient
+              ? `✓ Ça tient : ${e.nbMatchs} matchs, fin prévue ${finLisible(e.fin)}.`
+              : `⛔ Ça ne tient pas : ${e.nbNonPlanifies} match(s) sur ${e.nbMatchs} ne rentrent pas dans les journées prévues.`}
+          </p>
+          <p className="aide">
+            Temps de jeu nécessaire : {hm(e.minutesNecessaires)} de terrain, pour {hm(e.minutesDisponibles)} disponibles ({taux} % d'occupation, {t.terrains.length} terrain(s)).
+            Le calcul respecte les temps de repos, les pauses et l'enchaînement des tours ; il utilise les durées de match de l'onglet Tournoi.
+          </p>
+          {!e.tient && (
+            pistes.length ? (
+              <>
+                <h4>Ce qui fonctionnerait</h4>
+                <ul className="propositions">
+                  {pistes.slice(0, 8).map((s, i) => (
+                    <li key={i}>
+                      <button className="lien" onClick={() => maj((x) => s.appliquer(x))}>{s.libelle}</button>
+                      <span className="muted"> · fin {finLisible(s.estimation.fin)} · {s.estimation.nbMatchs} matchs</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="aide">Clique sur une piste pour l'appliquer.</p>
+              </>
+            ) : <p className="muted">Aucune piste simple ne suffit : ajoute une journée ou plusieurs terrains.</p>
+          )}
+        </>
+      )}
+    </section>
   );
 }
