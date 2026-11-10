@@ -40,9 +40,30 @@ export function controlesFormule(t: Tournoi): Probleme[] {
     const ok = formatsAutorises(t.categorie, t.public, phase, tailleTour);
     if (!ok.includes(format)) pb.push({ niveau: 'erreur', message: `Format ${format} interdit pour ${libelle} en ${t.categorie} (autorisés : ${ok.join(', ')})` });
   };
-  if (f.type === 'POULES_TABLEAU') {
-    verif(f.formats.poules, 'QUALIF', 'les poules');
-    if (N < 2 * f.nbPoules) pb.push({ niveau: 'erreur', message: `${f.nbPoules} poules pour ${N} paires : il faut 2 têtes de série par poule.` });
+  if (f.type === 'QUALIF_TF') {
+    const D = f.entreesDirectes ?? 0;
+    const nQ = N - D;
+    const Q = f.nbPoules * f.qualifiesParPoule;
+    const TF = D + Q;
+    if (D < 1) pb.push({ niveau: 'erreur', message: 'Indique le nombre de paires admises directement dans le tableau final.' });
+    if (nQ < 2 * f.nbPoules) pb.push({ niveau: 'erreur', message: `${nQ} paires en qualifications pour ${f.nbPoules} poule(s) : il faut au moins 2 paires par poule.` });
+    const wcTF = t.paires.filter((p) => !p.forfait && p.wildCard === 'TF').length;
+    const wcQ = t.paires.filter((p) => !p.forfait && p.wildCard === 'Q').length;
+    if (wcTF > D) pb.push({ niveau: 'erreur', message: `${wcTF} wild cards tableau final pour ${D} entrées directes.` });
+    // grilles P500 / P1000 (Chapitre I, Les Wild Cards)
+    if (t.categorie === 'P500' || t.categorie === 'P1000') {
+      const ligne = (x: number, l: [number, number][]) => l.find(([s]) => x <= s)?.[1] ?? l[l.length - 1][1];
+      const maxWcTF = ligne(TF, [[8, 0], [12, 1], [16, 2], [24, 2], [32, 2], [48, 4], [64, 4]]);
+      const maxQualifies = ligne(TF, [[8, 2], [12, 2], [16, 4], [24, 4], [32, 8], [48, 8], [64, 8]]);
+      const maxWcQ = ligne(nQ, [[8, 0], [12, 1], [16, 1], [24, 2], [32, 4], [48, 6], [64, 8]]);
+      if (wcTF > maxWcTF) pb.push({ niveau: 'erreur', message: `Tableau final de ${TF} : ${maxWcTF} wild card(s) au maximum (${wcTF} attribuée(s)).` });
+      if (wcQ > maxWcQ) pb.push({ niveau: 'erreur', message: `${nQ} paires en qualifications : ${maxWcQ} wild card(s) au maximum (${wcQ} attribuée(s)).` });
+      if (Q > maxQualifies) pb.push({ niveau: 'alerte', message: `Tableau final de ${TF} : ${maxQualifies} paires qualifiées au maximum (${Q} prévues).` });
+    }
+  }
+  if (f.type === 'POULES_TABLEAU' || f.type === 'QUALIF_TF') {
+    verif(f.formats.poules, 'QUALIF', f.type === 'QUALIF_TF' ? 'les qualifications' : 'les poules');
+    if (f.type === 'POULES_TABLEAU' && N < 2 * f.nbPoules) pb.push({ niveau: 'erreur', message: `${f.nbPoules} poules pour ${N} paires : il faut 2 têtes de série par poule.` });
     if (f.qualifiesParPoule < 1) pb.push({ niveau: 'erreur', message: 'Au moins 1 qualifié par poule.' });
   }
   // formats du tableau, tour par tour quand les matchs existent
@@ -56,7 +77,7 @@ export function controlesFormule(t: Tournoi): Probleme[] {
   verif(f.formats.classement, 'CLASSEMENT', 'les matchs de classement');
   // TF ≥ 1/2 finale pour les P250 messieurs et mixtes
   if (t.categorie === 'P250' && t.discipline !== 'DD' && t.public !== 'JEUNES') {
-    const tf = f.type === 'TMC' ? N : f.nbPoules * f.qualifiesParPoule;
+    const tf = f.type === 'TMC' ? N : f.nbPoules * f.qualifiesParPoule + (f.type === 'QUALIF_TF' ? f.entreesDirectes ?? 0 : 0);
     if (tf < 4) pb.push({ niveau: 'erreur', message: 'P250 Messieurs/Mixtes : le tableau final doit commencer au moins en 1/2 finale (4 paires).' });
   }
   const formatsUtilises = Object.values(f.formats);

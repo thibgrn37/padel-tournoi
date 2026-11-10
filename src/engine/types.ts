@@ -23,6 +23,10 @@ export interface Paire {
   /** Ordre d'inscription (1 = première inscrite). */
   ordreInscription: number;
   forfait?: boolean;
+  /** Wild card attribuée par le comité de tournoi : tableau final ou qualifications. */
+  wildCard?: 'TF' | 'Q';
+  /** Paire repêchée en lucky loser. */
+  luckyLoser?: boolean;
 }
 
 export interface Journee {
@@ -43,7 +47,7 @@ export interface Terrain {
   nom: string;
 }
 
-export type FormuleType = 'POULES_TABLEAU' | 'TMC';
+export type FormuleType = 'POULES_TABLEAU' | 'TMC' | 'QUALIF_TF';
 export type MethodePoules = 'SERPENTIN' | 'REPARTITION_RANG';
 
 export interface FormatsChoisis {
@@ -60,6 +64,8 @@ export interface Formule {
   methodePoules: MethodePoules;
   /** Nombre de paires qualifiées par poule pour le tableau final. */
   qualifiesParPoule: number;
+  /** Qualifications + tableau final : paires admises directement dans le tableau final (wild cards TF comprises). */
+  entreesDirectes?: number;
   formats: FormatsChoisis;
 }
 
@@ -133,7 +139,7 @@ export interface Tableau {
   /** Emplacements structurellement vides (exempts). */
   byes: number[];
   /** Origine des paires : inscrits (TMC) ou rangs de poules. */
-  origine: { type: 'INSCRITS' } | { type: 'POULES'; rangs: number[] };
+  origine: { type: 'INSCRITS' } | { type: 'POULES'; rangs: number[]; directs?: string[]; luckyLosers?: string[] };
   principal: boolean;
   /** Têtes de série (ids de paires), TS1 en premier. Fixées au tirage. */
   tetesDeSerie?: string[];

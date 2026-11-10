@@ -13,9 +13,12 @@ function Equipe({ t, m, cote }: { t: Tournoi; m: Match; cote: 'A' | 'B' }) {
   const sets = m.resultat?.sets.map(([a, b]) => (cote === 'A' ? a : b)) ?? [];
   const tab = t.tableaux.find((x) => x.id === m.groupeId);
   const ts = tab && id && id !== 'BYE' ? numeroTS(tab, id, t.ordrePaires) : undefined;
+  const paire = id && id !== 'BYE' ? t.paires.find((p) => p.id === id) : undefined;
+  const statut = paire?.luckyLoser ? 'LL' : paire?.wildCard ? 'WC' : '';
   return (
     <div className={`a-equipe ${gagne ? 'a-gagnant' : ''} ${perd ? 'a-perdant' : ''}`}>
       {ts && !(m.resultat?.auto && perd) && <span className="a-ts" title={`Tête de série n° ${ts}`}>TS{ts}</span>}
+      {statut && !(m.resultat?.auto && perd) && <span className="a-ts" title={statut === 'LL' ? 'Lucky loser' : 'Wild card'}>{statut}</span>}
       <span className="a-nom">{m.resultat?.auto && perd ? <i className="a-attente">Forfait</i> : id ? nomPaireId(t, id) : <i className="a-attente">{provenance(t, ref)}</i>}</span>
       {m.resultat && m.resultat.issue !== 'WO' && <span className="a-sets">{sets.map((s, i) => <b key={i}>{s}</b>)}</span>}
       {m.resultat?.issue === 'WO' && gagne && <span className="a-sets">WO</span>}

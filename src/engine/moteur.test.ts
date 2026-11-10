@@ -10,6 +10,8 @@ import {
 } from './tournoi';
 import { controlesPlanning, convocations, debutEnMinutes, decalerMatchs, planifier, vagues } from './planning';
 import { besoinBalles } from './balles';
+import { candidatsLuckyLoser, pairesDuTableauFinal, remplacerParLuckyLoser } from './luckyLoser';
+import { controlesFormule as ctrlF } from './controles';
 import { numeroTS } from './tableau';
 import { controlesFormule, controlesInscrits } from './controles';
 import type { Match, Paire, Tournoi } from './types';
@@ -154,7 +156,7 @@ describe('poules', () => {
 });
 
 // --- Simulation d'un tournoi complet ---
-function tournoiTest(n: number, type: 'TMC' | 'POULES_TABLEAU', nbPoules = 4): Tournoi {
+function tournoiTest(n: number, type: 'TMC' | 'POULES_TABLEAU' | 'QUALIF_TF', nbPoules = 4): Tournoi {
   const t = nouveauTournoi();
   t.categorie = 'P100';
   t.journees = [{ date: '2026-12-05', debut: '08:00', fin: '23:00' }, { date: '2026-12-06', debut: '09:00', fin: '20:00' }];
@@ -191,6 +193,81 @@ function jouer(t: Tournoi): Tournoi {
   }
   return t;
 }
+
+/** Joue seulement les matchs de poule (la plus forte gagne). */
+function jouerPoules(t: Tournoi): Tournoi {
+  for (const m of t.matchs.filter((x) => x.phase === 'POULE')) {
+    const a = resoudre(t, m.a)!, b = resoudre(t, m.b)!;
+    const v = Number(a.slice(1)) < Number(b.slice(1)) ? 'A' : 'B';
+    t = saisirResultat(t, m.id, { sets: v === 'A' ? [[4, 1], [4, 1]] : [[1, 4], [1, 4]], vainqueur: v, issue: 'NORMAL' });
+  }
+  return t;
+}
+
+const qualifTF = () => {
+  const t = tournoiTest(30, 'QUALIF_TF', 4);
+  t.categorie = 'P500';
+  t.formule = { ...t.formule, entreesDirectes: 12, qualifiesParPoule: 1, formats: { poules: 'B2', tableau: 'B2', finale: 'A2', classement: 'B2' } };
+  t.reglages = { ...t.reglages, nbMaxPaires: 28 }; // 2 paires en liste d'attente
+  return t;
+};
+
+describe('qualifications + tableau final, wild cards, lucky losers', () => {
+  it('12 entrées directes + 4 qualifiés des poules = tableau final de 16', () => {
+    let t = genererFormule(qualifTF(), 3);
+    expect(t.poules.flatMap((p) => p.paires).sort()).toEqual(Array.from({ length: 16 }, (_, i) => `p${i + 13}`).sort());
+    const tf = t.tableaux.find((x) => x.principal)!;
+    expect(tf.taille).toBe(16);
+    t = jouer(t);
+    const tfJoue = t.tableaux.find((x) => x.principal)!;
+    const dans = tfJoue.slots.filter((s) => s && s !== 'BYE');
+    expect(dans.length).toBe(16);
+    for (let i = 1; i <= 16; i++) expect(dans).toContain(`p${i}`); // 12 directs + 4 premiers de poule (p13 à p16)
+    expect(numeroTS(tfJoue, 'p1')).toBe(1);
+    const cf = classementFinal(t);
+    expect(cf.complet).toBe(true);
+    expect(cf.lignes.length).toBe(28);
+  });
+  it('wild cards : WC TF entre directement, WC Q va en qualifications', () => {
+    const base = qualifTF();
+    base.paires = base.paires.map((p) => (p.id === 'p20' ? { ...p, wildCard: 'TF' as const } : p.id === 'p3' ? { ...p, wildCard: 'Q' as const } : p));
+    const t = genererFormule(base, 3);
+    const directs = (t.tableaux.find((x) => x.principal)!.origine as { directs: string[] }).directs;
+    expect(directs).toContain('p20');
+    expect(directs).not.toContain('p3');
+    expect(directs).toContain('p12'); // p3 (WC qualifs) libère une place
+    expect(directs).not.toContain('p13'); // la WC TF prend une place directe
+    expect(t.poules.flatMap((p) => p.paires)).toContain('p3');
+    // P500, TF 16 : 2 WC max
+    base.paires = base.paires.map((p) => (['p20', 'p21', 'p22'].includes(p.id) ? { ...p, wildCard: 'TF' as const } : p));
+    expect(ctrlF(base).some((x) => x.message.includes('wild card'))).toBe(true);
+  });
+  it('lucky loser avant et après le tirage du tableau final', () => {
+    let t = jouerPoules(genererFormule(qualifTF(), 3));
+    expect(candidatsLuckyLoser(t)!.rang).toBe(2);
+    // avant le tirage : forfait d'une entrée directe
+    t = remplacerParLuckyLoser(t, 'p5', 11);
+    const ll = t.paires.find((p) => p.luckyLoser)!.id;
+    expect(['p17', 'p18', 'p19', 'p20']).toContain(ll); // 2es de poule
+    expect(pairesDuTableauFinal(t)).toContain(ll);
+    expect(pairesDuTableauFinal(t)).not.toContain('p5');
+    t = tirerTableauxApresPoules(t, 4);
+    const tf = t.tableaux.find((x) => x.principal)!;
+    expect(tf.slots).toContain(ll);
+    expect(tf.slots).not.toContain('p5');
+    const tc = t.tableaux.find((x) => !x.principal)!;
+    expect(tc.slots).not.toContain(ll);
+    // après le tirage : forfait d'une paire au 1er tour
+    t = remplacerParLuckyLoser(t, 'p8', 12);
+    const ll2 = t.paires.filter((p) => p.luckyLoser).map((p) => p.id).find((id) => id !== ll)!;
+    const tf2 = t.tableaux.find((x) => x.principal)!;
+    expect(tf2.slots.indexOf(ll2)).toBe(tf.slots.indexOf('p8'));
+    expect(t.tableaux.find((x) => !x.principal)!.slots).toContain('BYE');
+    t = jouer(t);
+    expect(classementFinal(t).complet).toBe(true);
+    expect(classementFinal(t).lignes.map((l) => l.paireId)).not.toContain('p5');
+  });
+});
 
 describe('tournoi complet', () => {
   it('TMC : tailles qui garantissent 3 matchs', () => {

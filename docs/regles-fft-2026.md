@@ -43,7 +43,7 @@ Le code correspondant est dans `src/engine/regles.ts` (règles), `poules.ts`, `t
 6. **TMC** : avec un nombre de paires qui n'est pas une puissance de 2, certaines tailles ne garantissent pas 3 matchs ; l'app le signale et propose les poules.
 
 ## Pas encore géré
-Qualifications + tableau final avec entrées échelonnées (P500 et plus), wild cards, lucky losers, prize money, barèmes de points, championnats par paires / par équipes.
+Tableaux de qualification (seules les qualifications en poules sont proposées), lucky losers issus des perdants de 1/8 (substitution du vainqueur défaillant), réordonnancement des TS après un forfait de TS, prize money, barèmes de points, championnats par paires / par équipes.
 
 ## Balles (Chapitre III, cahiers des charges)
 - P25, P50 et jeunes : 3 balles neuves par terrain ; matchs de classement : non obligatoire.
@@ -56,3 +56,10 @@ Qualifications + tableau final avec entrées échelonnées (P500 et plus), wild 
 - Les 1/2 finales puis la finale du tableau principal sont programmées en dernier (demande de l'organisateur).
 - Têtes de série d'un tableau : la moitié des places du 1er tour, dans l'ordre des paires (poids, ou rang de poule puis poids).
 - Une paire perdante par WO, abandon ou disqualification est sortie : ses matchs suivants sont gagnés par WO par l'adversaire.
+
+## Qualifications + tableau final, wild cards, lucky losers (Chapitre I)
+- Formule « Qualifications (poules) + tableau final » : les N meilleurs poids (WC TF comprises) entrent directement, les autres jouent des poules de qualification ; les premiers de poule rejoignent le tableau final. Les non-qualifiés jouent leurs matchs de classement.
+- Au tirage du tableau final : entrées directes d'abord (par poids), puis qualifiés, puis lucky losers ; TS et chapeaux habituels.
+- Wild cards (TF ou qualifications) : toujours retenues, placées selon leur poids. Grilles P500 / P1000 contrôlées (WC max en TF et en qualifications, qualifiés max).
+- Lucky loser : à la fin des poules, tirage au sort parmi les paires non qualifiées du meilleur rang suivant. Avant le tirage du TF, le LL entre au tirage ; après, il prend la ligne de la paire forfait (si elle n'a pas encore joué). Sa place en tableau de classement devient un exempt.
+- Interprétation : la paire forfait n'ayant joué aucun match n'est pas classée.

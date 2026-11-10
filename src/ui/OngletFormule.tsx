@@ -31,6 +31,17 @@ function propositions(t: Tournoi): Proposition[] {
     for (const k of [1, 2]) essai({ type: 'POULES_TABLEAU', nbPoules: P, qualifiesParPoule: k }, `${P} poules (${desc}), ${k} qualifié${k > 1 ? 's' : ''} par poule`);
   }
   essai({ type: 'TMC' }, `TMC ${N} paires (tableau multi-chances)`);
+  // Qualifications + tableau final (grille des P500 / P1000 : nombre de qualifiés selon la taille du TF)
+  if (t.formule.type === 'QUALIF_TF' || ['P500', 'P1000', 'P1500', 'P2000'].includes(t.categorie)) {
+    for (const [TF, Q] of [[8, 2], [12, 2], [16, 4], [24, 4], [32, 8]] as const) {
+      const nQ = N - (TF - Q);
+      if (nQ < 2 * Q) continue;
+      const tailles = taillesPoules(nQ, Q);
+      if (Math.min(...tailles) < 3 || Math.max(...tailles) > 5) continue;
+      essai({ type: 'QUALIF_TF', entreesDirectes: TF - Q, nbPoules: Q, qualifiesParPoule: 1 },
+        `Tableau final de ${TF} : ${TF - Q} entrées directes + ${Q} qualifiés (${nQ} paires en ${Q} poules de qualification)`);
+    }
+  }
   return res;
 }
 
@@ -94,18 +105,36 @@ export function OngletFormule({ t, maj, allerA }: { t: Tournoi; maj: Maj; allerA
           </>
         )}
         <label>Type
-          <select value={f.type} onChange={(e) => setF({ type: e.target.value as Formule['type'] })}>
+          <select value={f.type} onChange={(e) => {
+            const type = e.target.value as Formule['type'];
+            if (type === 'QUALIF_TF' && !f.entreesDirectes) {
+              const D = N >= 28 ? 12 : Math.max(2, N - 8);
+              setF({ type, entreesDirectes: D, nbPoules: N - D >= 8 ? 4 : 2, qualifiesParPoule: 1 });
+            } else setF({ type });
+          }}>
             <option value="POULES_TABLEAU">Poules + tableau final (+ matchs de classement)</option>
             <option value="TMC">Tableau multi-chances (TMC)</option>
+            <option value="QUALIF_TF">Qualifications (poules) + tableau final</option>
           </select>
         </label>
-        {f.type === 'POULES_TABLEAU' && (
+        {f.type === 'QUALIF_TF' && (
+          <>
+            <label>Entrées directes dans le tableau final (wild cards TF comprises)<input type="number" min={1} value={f.entreesDirectes ?? 0} onChange={(e) => setF({ entreesDirectes: +e.target.value })} /></label>
+            <p className="aide">
+              Tableau final de {(f.entreesDirectes ?? 0) + f.nbPoules * f.qualifiesParPoule} paires : {f.entreesDirectes ?? 0} entrées directes (les meilleurs poids)
+              + {f.nbPoules * f.qualifiesParPoule} qualifiés. {Math.max(0, N - (f.entreesDirectes ?? 0))} paires en qualifications
+              {N - (f.entreesDirectes ?? 0) > 0 && f.nbPoules > 0 ? ` (poules de ${taillesPoules(N - (f.entreesDirectes ?? 0), f.nbPoules).join(', ')})` : ''}.
+              Les non-qualifiés jouent leurs matchs de classement ; les lucky losers se gèrent dans l'onglet Poules & tableaux.
+            </p>
+          </>
+        )}
+        {(f.type === 'POULES_TABLEAU' || f.type === 'QUALIF_TF') && (
           <>
             <div className="ligne">
               <label>Nombre de poules<input type="number" min={1} value={f.nbPoules} onChange={(e) => setF({ nbPoules: +e.target.value })} /></label>
               <label>Qualifiés par poule<input type="number" min={1} max={4} value={f.qualifiesParPoule} onChange={(e) => setF({ qualifiesParPoule: +e.target.value })} /></label>
             </div>
-            {N > 0 && f.nbPoules > 0 && <p className="aide">Poules de {taillesPoules(N, f.nbPoules).join(', ')} paires.</p>}
+            {f.type === 'POULES_TABLEAU' && N > 0 && f.nbPoules > 0 && <p className="aide">Poules de {taillesPoules(N, f.nbPoules).join(', ')} paires.</p>}
             <label>Constitution des poules
               <select value={f.methodePoules} onChange={(e) => setF({ methodePoules: e.target.value as Formule['methodePoules'] })}>
                 <option value="SERPENTIN">Serpentin (placement fixe selon le poids)</option>
@@ -119,7 +148,7 @@ export function OngletFormule({ t, maj, allerA }: { t: Tournoi; maj: Maj; allerA
       <section className="carte">
         <h2>Formats de jeu</h2>
         <p className="aide">Seuls les formats autorisés pour un {t.categorie} sont proposés.</p>
-        {f.type === 'POULES_TABLEAU' && <label>Poules<ChoixFormat t={t} valeur={f.formats.poules} phase="QUALIF" onChange={(v) => setFormat('poules', v)} /></label>}
+        {f.type !== 'TMC' && <label>{f.type === 'QUALIF_TF' ? 'Qualifications (poules)' : 'Poules'}<ChoixFormat t={t} valeur={f.formats.poules} phase="QUALIF" onChange={(v) => setFormat('poules', v)} /></label>}
         <label>Tableau final (hors finale)<ChoixFormat t={t} valeur={f.formats.tableau} phase="TABLEAU" tailleTour={8} onChange={(v) => setFormat('tableau', v)} /></label>
         <label>Finale<ChoixFormat t={t} valeur={f.formats.finale} phase="FINALE" tailleTour={2} onChange={(v) => setFormat('finale', v)} /></label>
         <label>Matchs de classement<ChoixFormat t={t} valeur={f.formats.classement} phase="CLASSEMENT" onChange={(v) => setFormat('classement', v)} /></label>

@@ -48,7 +48,10 @@ export function selection(t: Tournoi): { retenues: Paire[]; attente: Paire[] } {
     : [...actives].sort((a, b) => a.ordreInscription - b.ordreInscription);
   const max = t.reglages.nbMaxPaires;
   if (!max || tri.length <= max) return { retenues: tri, attente: [] };
-  return { retenues: tri.slice(0, max), attente: tri.slice(max) };
+  // les wild cards sont toujours retenues, elles prennent la place des dernières paires
+  const nbWC = tri.filter((p) => p.wildCard).length;
+  const gardees = new Set([...tri.filter((p) => p.wildCard), ...tri.filter((p) => !p.wildCard).slice(0, Math.max(0, max - nbWC))]);
+  return { retenues: tri.filter((p) => gardees.has(p)), attente: tri.filter((p) => !gardees.has(p)) };
 }
 
 export const paireParId = (t: Tournoi, id: string) => t.paires.find((p) => p.id === id);
@@ -58,6 +61,15 @@ export const nomPaireId = (t: Tournoi, id: string | null | undefined) => {
   const p = paireParId(t, id);
   return p ? nomPaire(p) : '?';
 };
+
+/** Qualifications + tableau final : entrées directes (meilleurs poids + WC TF) et paires en qualifications. */
+export function separerDirects(t: Tournoi, ordre: string[]): { directs: string[]; qualif: string[] } {
+  const nD = Math.max(0, Math.min(t.formule.entreesDirectes ?? 0, ordre.length - 2));
+  const wcTF = ordre.filter((id) => paireParId(t, id)?.wildCard === 'TF').slice(0, nD);
+  const autres = ordre.filter((id) => !wcTF.includes(id) && paireParId(t, id)?.wildCard !== 'Q').slice(0, nD - wcTF.length);
+  const directs = ordre.filter((id) => wcTF.includes(id) || autres.includes(id));
+  return { directs, qualif: ordre.filter((id) => !directs.includes(id)) };
+}
 
 /** Supprime la formule (poules, tableaux, matchs, ordre). Le journal des tirages est conservé. */
 export function reinitialiserFormule(t: Tournoi): Tournoi {
@@ -87,21 +99,33 @@ export function genererFormule(t0: Tournoi, graine = nouvelleGraine()): Tournoi 
     tableaux = [tab];
     matchs = genererMatchsTableau(tab, f.formats, 0);
   } else {
+    // Qualifications + tableau final : les meilleures paires (et les wild cards TF) entrent directement
+    let directs: string[] = [];
+    let qualif = ordre;
+    if (f.type === 'QUALIF_TF') {
+      ({ directs, qualif } = separerDirects(t, ordre));
+      const wcTF = directs.filter((id) => paireParId(t, id)?.wildCard === 'TF');
+      j.log(`Entrées directes dans le tableau final (${directs.length}) : ` + directs.map((id) => `${nom(id)}${wcTF.includes(id) ? ' (WC)' : ''}`).join(' ; '));
+      const wcQ = qualif.filter((id) => paireParId(t, id)?.wildCard === 'Q');
+      j.log(`Qualifications (${qualif.length} paires)` + (wcQ.length ? `, dont wild cards : ${wcQ.map(nom).join(', ')}` : ''));
+    }
     const P = f.nbPoules;
-    if (P < 1 || ordre.length < 2 * P) throw new Error('Il faut au moins 2 paires par poule (2 têtes de série par poule).');
-    poules = constituerPoules(ordre, P, f.methodePoules, rng, j, nom);
+    if (P < 1 || qualif.length < 2 * P) throw new Error(f.type === 'QUALIF_TF'
+      ? `Pas assez de paires en qualifications (${qualif.length}) pour ${P} poule(s) : il faut au moins 2 paires par poule.`
+      : 'Il faut au moins 2 paires par poule (2 têtes de série par poule).');
+    poules = constituerPoules(qualif, P, f.methodePoules, rng, j, nom);
     poules.forEach((p, i) => matchs.push(...genererMatchsPoule(p, f.formats.poules, i)));
     const k = Math.max(1, f.qualifiesParPoule);
     const Q = poules.reduce((s, p) => s + Math.min(k, p.paires.length), 0);
-    const R = ordre.length - Q;
+    const R = qualif.length - Q;
     const rangsQ = Array.from({ length: k }, (_, i) => i + 1);
-    const tf = creerTableau('tf', 'Tableau final', Q, 1, { type: 'POULES', rangs: rangsQ }, true);
+    const tf = creerTableau('tf', 'Tableau final', directs.length + Q, 1, { type: 'POULES', rangs: rangsQ, ...(directs.length ? { directs } : {}) }, true);
     tableaux.push(tf);
     matchs.push(...genererMatchsTableau(tf, f.formats, 10000));
     if (R >= 2) {
       const maxTaille = Math.max(...poules.map((p) => p.paires.length));
       const rangsC = Array.from({ length: maxTaille - k }, (_, i) => k + i + 1);
-      const tc = creerTableau('tc', 'Classement', R, Q + 1, { type: 'POULES', rangs: rangsC }, false);
+      const tc = creerTableau('tc', f.type === 'QUALIF_TF' ? 'Classement des qualifications' : 'Classement', R, directs.length + Q + 1, { type: 'POULES', rangs: rangsC }, false);
       tableaux.push(tc);
       matchs.push(...genererMatchsTableau(tc, f.formats, 10000));
     }
@@ -193,15 +217,30 @@ export function tirerTableauxApresPoules(t: Tournoi, graine = nouvelleGraine()):
     cl.forEach((l, i) => { rangs.set(l.paireId, i + 1); pouleDe.set(l.paireId, p.id); });
     return { ...p, departage };
   });
-  const tableaux = t.tableaux.map((tab) => {
-    if (tab.origine.type !== 'POULES' || !tab.slots.some((s) => s === null)) return tab;
+  // paires déjà prises par un tableau (entrées directes, lucky losers) : pas ailleurs
+  const forfait = (id: string) => !!paireParId(t, id)?.forfait;
+  const pris = new Set<string>(t.tableaux.flatMap((x) => [...(x.origine.type === 'POULES' ? [...(x.origine.directs ?? []), ...(x.origine.luckyLosers ?? [])] : []), ...x.slots.filter((s): s is string => !!s && s !== 'BYE')]));
+  const ordreTab = [...t.tableaux].sort((a, b) => Number(b.principal) - Number(a.principal));
+  const tires = new Map<string, Tableau>();
+  for (const tab of ordreTab) {
+    if (tab.origine.type !== 'POULES' || !tab.slots.some((s) => s === null)) { tires.set(tab.id, tab); continue; }
     const rs = tab.origine.rangs;
-    const entrants = [...rangs.keys()]
-      .filter((id) => rs.includes(rangs.get(id)!))
+    const directs = (tab.origine.directs ?? []).filter((id) => !forfait(id));
+    const qualifies = [...rangs.keys()]
+      .filter((id) => rs.includes(rangs.get(id)!) && !pris.has(id) && !forfait(id))
       .sort((a, b) => rangs.get(a)! - rangs.get(b)! || ordre.indexOf(a) - ordre.indexOf(b));
-    j.log(`${tab.nom} — ordre des paires : ` + entrants.map((id, i) => `${i + 1}. ${nom(id)} (${rangs.get(id)}e ${pouleDe.get(id)!.replace('poule-', 'poule ')})`).join(' ; '));
-    return tirerTableau(tab, entrants, rng, j, nom, (a, b) => pouleDe.get(a) === pouleDe.get(b));
-  });
+    qualifies.forEach((id) => pris.add(id));
+    // entrées directes d'abord (par poids), puis qualifiés : un qualifié ne peut pas être mieux placé qu'une entrée directe
+    const lucky = (tab.origine.luckyLosers ?? []).filter((id) => !forfait(id));
+    const entrants = [...directs.sort((a, b) => ordre.indexOf(a) - ordre.indexOf(b)), ...qualifies, ...lucky];
+    j.log(`${tab.nom} — ordre des paires : ` + entrants.map((id, i) => `${i + 1}. ${nom(id)} (${rangs.has(id) && !directs.includes(id) ? `${rangs.get(id)}e ${pouleDe.get(id)!.replace('poule-', 'poule ')}${lucky.includes(id) ? ', lucky loser' : ''}` : 'entrée directe'})`).join(' ; '));
+    const tire = tirerTableau(tab, entrants, rng, j, nom, (a, b) => !!pouleDe.get(a) && pouleDe.get(a) === pouleDe.get(b));
+    // place restée vide (paire forfait remplacée ailleurs) : exempt
+    const vides = tire.slots.flatMap((s, i) => (s === null ? [i] : []));
+    if (vides.length) j.log(`${tab.nom} : ${vides.length} place(s) vide(s) après forfait, remplacée(s) par un exempt.`);
+    tires.set(tab.id, vides.length ? { ...tire, slots: tire.slots.map((s) => s ?? 'BYE'), byes: [...tire.byes, ...vides] } : tire);
+  }
+  const tableaux = t.tableaux.map((x) => tires.get(x.id) ?? x);
   return { ...t, poules, tableaux, tirages: [...t.tirages, j.vers()] };
 }
 
@@ -289,7 +328,9 @@ export function classementFinal(t: Tournoi): { lignes: LigneFinale[]; complet: b
   // paire restée seule hors tableau (ex. une seule paire classée après les qualifiés)
   if (complet && t.ordrePaires && t.poules.every((p) => pouleTerminee(p, t.matchs))) {
     const places = new Set(brut.map((l) => l.paireId));
-    const restes = t.ordrePaires.filter((id) => !places.has(id));
+    // une paire forfait qui n'a disputé aucun match n'est pas classée
+    const aJoue = (id: string) => t.matchs.some((m) => m.resultat && !m.resultat.auto && [resoudre(t, m.a), resoudre(t, m.b)].includes(id));
+    const restes = t.ordrePaires.filter((id) => !places.has(id) && (!paireParId(t, id)?.forfait || aJoue(id)));
     restes.forEach((id) => brut.push({ place: Infinity, paireId: id }));
   }
   return { lignes: brut.map((l, i) => ({ ...l, place: i + 1 })), complet: complet && brut.length > 0 };

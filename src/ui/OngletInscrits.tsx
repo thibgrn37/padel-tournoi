@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { controlesInscrits } from '../engine/controles';
 import { selectionAuClassement } from '../engine/regles';
-import { nomPaire, poids, selection } from '../engine/tournoi';
+import { nomPaire, poids, selection, separerDirects } from '../engine/tournoi';
 import type { Joueur, Paire, Sexe, Tournoi } from '../engine/types';
 import { Problemes } from './commun';
 import { CHAMPS_JOUEUR, convertir, devinerMappage, lireFichier, type Mappage, type Tableur } from './importInscrits';
@@ -16,7 +16,16 @@ export function OngletInscrits({ t, maj }: { t: Tournoi; maj: Maj }) {
   const [edition, setEdition] = useState<Paire | null>(null);
   const [imp, setImp] = useState<{ tab: Tableur; map: Mappage } | null>(null);
   const { retenues, attente } = selection(t);
-  const statut = (p: Paire) => (p.forfait ? 'Forfait' : attente.includes(p) ? 'Liste d\'attente' : 'Retenue');
+  const qualifTF = t.formule.type === 'QUALIF_TF';
+  const avecWC = qualifTF || ['P500', 'P1000', 'P1500', 'P2000'].includes(t.categorie);
+  // phase d'entrée prévue (avant tirage : selon le poids ; après : selon le tirage)
+  const tf = t.tableaux.find((x) => x.principal);
+  const directs = new Set(qualifTF
+    ? (tf?.origine.type === 'POULES' && tf.origine.directs) || separerDirects(t, [...retenues].sort((a, b) => poids(t, a) - poids(t, b)).map((p) => p.id)).directs
+    : []);
+  const statut = (p: Paire) => (p.forfait ? 'Forfait' : attente.includes(p) ? 'Liste d\'attente'
+    : qualifTF ? (directs.has(p.id) ? 'Tableau final' : 'Qualifications') : 'Retenue') + (p.luckyLoser ? ' (lucky loser)' : '');
+  const setWC = (p: Paire, v: string) => maj((x) => ({ ...x, paires: x.paires.map((y) => (y.id === p.id ? { ...y, wildCard: (v || undefined) as Paire['wildCard'] } : y)) }));
   const formuleCree = t.matchs.length > 0;
   const tri = [...t.paires].sort((a, b) => a.ordreInscription - b.ordreInscription);
 
@@ -54,7 +63,7 @@ export function OngletInscrits({ t, maj }: { t: Tournoi; maj: Maj }) {
       <Problemes liste={controlesInscrits(t)} okTexte="Inscriptions conformes au règlement" />
       <table className="tableau-simple">
         <thead>
-          <tr><th>#</th><th>Joueur 1</th><th>Joueur 2</th><th>Poids</th><th>Statut</th><th></th></tr>
+          <tr><th>#</th><th>Joueur 1</th><th>Joueur 2</th><th>Poids</th>{avecWC && <th>Wild card</th>}<th>Statut</th><th></th></tr>
         </thead>
         <tbody>
           {tri.map((p) => (
@@ -63,6 +72,15 @@ export function OngletInscrits({ t, maj }: { t: Tournoi; maj: Maj }) {
               <td>{ligneJoueur(p.j1)}</td>
               <td>{ligneJoueur(p.j2)}</td>
               <td><b>{poids(t, p).toLocaleString('fr-FR')}</b></td>
+              {avecWC && (
+                <td>
+                  <select value={p.wildCard ?? ''} onChange={(e) => setWC(p, e.target.value)}>
+                    <option value="">—</option>
+                    <option value="TF">WC tableau final</option>
+                    <option value="Q">WC qualifications</option>
+                  </select>
+                </td>
+              )}
               <td>{statut(p)}</td>
               <td className="actions-ligne">
                 <button className="lien" onClick={() => setEdition(p)}>Modifier</button>
@@ -73,7 +91,7 @@ export function OngletInscrits({ t, maj }: { t: Tournoi; maj: Maj }) {
               </td>
             </tr>
           ))}
-          {!t.paires.length && <tr><td colSpan={6} className="vide">Aucune paire. Ajoute-les à la main ou importe un fichier.</td></tr>}
+          {!t.paires.length && <tr><td colSpan={avecWC ? 7 : 6} className="vide">Aucune paire. Ajoute-les à la main ou importe un fichier.</td></tr>}
         </tbody>
       </table>
       {edition && <EditionPaire paire={edition} onValider={enregistrer} onFermer={() => setEdition(null)} />}
